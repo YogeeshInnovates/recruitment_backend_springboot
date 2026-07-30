@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: recruitment-springboot
+    env: docker
+    dockerfilePath: ./Dockerfile
+    envVars:
+      - key: SPRING_DATASOURCE_URL
+        sync: false
+      - key: SPRING_DATASOURCE_USERNAME
+        sync: false
+      - key: SPRING_DATASOURCE_PASSWORD
+        sync: false
+      - key: AI_SERVICE_URL
+        sync: false
+      - key: SPRING_MAIL_HOST
+        sync: false
+      - key: SPRING_MAIL_PORT
+        value: "587"
+      - key: SPRING_MAIL_USERNAME
+        sync: false
+      - key: SPRING_MAIL_PASSWORD
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
