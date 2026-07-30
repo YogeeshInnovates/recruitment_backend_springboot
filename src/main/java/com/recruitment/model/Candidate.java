@@ -1,6 +1,7 @@
 package com.recruitment.model;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -47,6 +48,7 @@ public class Candidate {
 
     @OneToMany(mappedBy = "candidate", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonManagedReference("candidate-applications")
+    @JsonIgnoreProperties({"candidate", "jobPost", "organization", "interviews"})
     @Builder.Default
     private List<Application> applications = new ArrayList<>();
 

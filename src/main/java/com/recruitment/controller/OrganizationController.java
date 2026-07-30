@@ -1,7 +1,9 @@
 package com.recruitment.controller;
 
+import com.recruitment.dto.AddRecruiterRequest;
 import com.recruitment.dto.ApiResponse;
 import com.recruitment.dto.OrganizationRequest;
+import com.recruitment.model.OrgMembership;
 import com.recruitment.model.Organization;
 import com.recruitment.service.OrganizationService;
 import jakarta.validation.Valid;
@@ -22,10 +24,17 @@ public class OrganizationController {
 
     @PostMapping
     public ResponseEntity<ApiResponse<Organization>> createOrganization(
-            @Valid @RequestBody OrganizationRequest request) {
-        Organization org = organizationService.createOrg(request);
+            @Valid @RequestBody OrganizationRequest request,
+            @RequestParam(defaultValue = "1") Long userId) {
+        Organization org = organizationService.createOrg(request, userId);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Organization created successfully", org));
+    }
+
+    @GetMapping("/mine/{userId}")
+    public ResponseEntity<ApiResponse<List<Organization>>> getMyOrganizations(@PathVariable Long userId) {
+        List<Organization> orgs = organizationService.getOrgsByUserId(userId);
+        return ResponseEntity.ok(ApiResponse.success("Organizations retrieved successfully", orgs));
     }
 
     @GetMapping
@@ -38,6 +47,21 @@ public class OrganizationController {
     public ResponseEntity<ApiResponse<Organization>> getOrganizationById(@PathVariable Long id) {
         Organization org = organizationService.getOrgById(id);
         return ResponseEntity.ok(ApiResponse.success("Organization retrieved successfully", org));
+    }
+
+    @PostMapping("/{orgId}/recruiters")
+    public ResponseEntity<ApiResponse<OrgMembership>> addRecruiter(
+            @PathVariable Long orgId,
+            @Valid @RequestBody AddRecruiterRequest request) {
+        OrgMembership membership = organizationService.addRecruiterToOrg(orgId, request.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Recruiter added successfully", membership));
+    }
+
+    @GetMapping("/{orgId}/recruiters")
+    public ResponseEntity<ApiResponse<List<OrgMembership>>> getRecruiters(@PathVariable Long orgId) {
+        List<OrgMembership> members = organizationService.getOrgRecruiters(orgId);
+        return ResponseEntity.ok(ApiResponse.success("Recruiters retrieved successfully", members));
     }
 
     @PutMapping("/{id}")

@@ -1,0 +1,10 @@
+FROM maven:3.9-eclipse-temurin-17-alpine
+WORKDIR /app
+
+# Pre-download dependencies for faster restart
+COPY pom.xml .
+RUN mvn dependency:go-offline -B
+
+RUN apk add --no-cache inotify-tools
+EXPOSE 8080
+CMD ["mvn", "spring-boot:run"]
