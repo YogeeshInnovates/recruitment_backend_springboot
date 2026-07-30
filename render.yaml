@@ -2,7 +2,9 @@ services:
   - type: web
     name: recruitment-springboot
     env: docker
-    dockerfilePath: ./Dockerfile
+    image:
+      url: ghcr.io/yogeeshinnovates/recruitment_backend_springboot:latest
+    port: 8080
     envVars:
       - key: SPRING_DATASOURCE_URL
         sync: false
