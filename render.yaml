@@ -6,6 +6,8 @@ services:
       url: ghcr.io/yogeeshinnovates/recruitment_backend_springboot:latest
     port: 8080
     envVars:
+      - key: SPRING_PROFILES_ACTIVE
+        value: prod
       - key: SPRING_DATASOURCE_URL
         sync: false
       - key: SPRING_DATASOURCE_USERNAME
