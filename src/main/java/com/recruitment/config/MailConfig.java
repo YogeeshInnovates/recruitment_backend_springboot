@@ -22,8 +22,10 @@ public class MailConfig {
         String password = System.getenv("MAIL_PASSWORD");
 
         if (username != null && !username.isEmpty()) {
-            mailSender.setUsername(username);
-            mailSender.setPassword(password);
+            mailSender.setUsername(username.trim());
+            if (password != null) {
+                mailSender.setPassword(password.replace(" ", "").trim());
+            }
         }
 
         Properties props = mailSender.getJavaMailProperties();

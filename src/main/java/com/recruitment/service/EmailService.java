@@ -22,6 +22,9 @@ public class EmailService {
     @Value("${frontend.url}")
     private String frontendUrl;
 
+    @Value("${MAIL_USERNAME:}")
+    private String mailUsername;
+
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
                                        String round, LocalDateTime scheduledAt,
@@ -150,15 +153,19 @@ public class EmailService {
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
             helper.setSubject(subject);
-            helper.setFrom("noreply@recruitment-platform.com");
+            String from = (mailUsername != null && !mailUsername.isEmpty())
+                    ? mailUsername
+                    : "noreply@recruitment-platform.com";
+            helper.setFrom(from);
             helper.setText(htmlContent, true);
             mailSender.send(message);
             log.info("Email sent to {}: {}", to, subject);
         } catch (Exception e) {
-            log.warn("Could not send email to {} (SMTP not configured): {}", to, e.getMessage());
+            log.warn("Could not send email to {}: {}", to, e.getMessage());
             log.info("=== EMAIL WOULD HAVE BEEN SENT ===");
             log.info("To: {}", to);
             log.info("Subject: {}", subject);
+            log.info("From: {}", mailUsername);
             log.info("=== END EMAIL ===");
         }
     }
