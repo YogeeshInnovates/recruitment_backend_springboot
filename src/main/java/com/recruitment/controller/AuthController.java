@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -39,18 +40,21 @@ public class AuthController {
     }
 
     @GetMapping("/me/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<AuthResponse>> getMe(@PathVariable Long userId) {
         AuthResponse response = userService.getUserById(userId);
         return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", response));
     }
 
     @GetMapping("/roles/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<List<OrgMembership>>> getRoles(@PathVariable Long userId) {
         List<OrgMembership> memberships = authService.getRolesForUser(userId);
         return ResponseEntity.ok(ApiResponse.success("Roles retrieved successfully", memberships));
     }
 
     @GetMapping("/super-admin/{userId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponse<Map<String, Boolean>>> isSuperAdmin(@PathVariable Long userId) {
         boolean isSuperAdmin = authService.isSuperAdmin(userId);
         return ResponseEntity.ok(ApiResponse.success("Check completed", Map.of("isSuperAdmin", isSuperAdmin)));
