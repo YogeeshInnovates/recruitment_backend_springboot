@@ -21,4 +21,12 @@ public class OrganizationRequest {
     private String email;
     private String phone;
     private String address;
+    private String city;
+    private String state;
+    private String postalCode;
+    private String gstNumber;
+    private String cinNumber;
+    private String legalEntityType;
+    private String companySize;
+    private Integer foundedYear;
 }

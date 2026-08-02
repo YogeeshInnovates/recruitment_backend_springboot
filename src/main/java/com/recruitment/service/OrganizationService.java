@@ -33,6 +33,14 @@ public class OrganizationService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .address(request.getAddress())
+                .city(request.getCity())
+                .state(request.getState())
+                .postalCode(request.getPostalCode())
+                .gstNumber(request.getGstNumber())
+                .cinNumber(request.getCinNumber())
+                .legalEntityType(request.getLegalEntityType())
+                .companySize(request.getCompanySize())
+                .foundedYear(request.getFoundedYear())
                 .createdByUserId(userId)
                 .build();
         org = organizationRepository.save(org);
@@ -95,6 +103,14 @@ public class OrganizationService {
         existing.setEmail(request.getEmail());
         existing.setPhone(request.getPhone());
         existing.setAddress(request.getAddress());
+        existing.setCity(request.getCity());
+        existing.setState(request.getState());
+        existing.setPostalCode(request.getPostalCode());
+        existing.setGstNumber(request.getGstNumber());
+        existing.setCinNumber(request.getCinNumber());
+        existing.setLegalEntityType(request.getLegalEntityType());
+        existing.setCompanySize(request.getCompanySize());
+        existing.setFoundedYear(request.getFoundedYear());
         return organizationRepository.save(existing);
     }
 
