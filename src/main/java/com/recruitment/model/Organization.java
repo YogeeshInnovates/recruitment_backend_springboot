@@ -26,6 +26,8 @@ public class Organization {
     @NotBlank(message = "Organization name is required")
     private String name;
 
+    private Long createdByUserId;
+
     private String description;
 
     private String industry;

@@ -2,9 +2,12 @@ package com.recruitment.controller;
 
 import com.recruitment.dto.AddRecruiterRequest;
 import com.recruitment.dto.ApiResponse;
+import com.recruitment.dto.AssignRoleRequest;
 import com.recruitment.dto.OrganizationRequest;
 import com.recruitment.model.OrgMembership;
 import com.recruitment.model.Organization;
+import com.recruitment.model.TenantRole;
+import com.recruitment.service.AuthService;
 import com.recruitment.service.OrganizationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +24,7 @@ import java.util.List;
 public class OrganizationController {
 
     private final OrganizationService organizationService;
+    private final AuthService authService;
 
     @PostMapping
     public ResponseEntity<ApiResponse<Organization>> createOrganization(
@@ -62,6 +66,15 @@ public class OrganizationController {
     public ResponseEntity<ApiResponse<List<OrgMembership>>> getRecruiters(@PathVariable Long orgId) {
         List<OrgMembership> members = organizationService.getOrgRecruiters(orgId);
         return ResponseEntity.ok(ApiResponse.success("Recruiters retrieved successfully", members));
+    }
+
+    @PostMapping("/{orgId}/roles")
+    public ResponseEntity<ApiResponse<OrgMembership>> assignRole(
+            @PathVariable Long orgId,
+            @Valid @RequestBody AssignRoleRequest request) {
+        TenantRole role = authService.resolveRole(request.getRole());
+        OrgMembership membership = authService.assignRole(request.getActingUserId(), orgId, request.getEmail(), role);
+        return ResponseEntity.ok(ApiResponse.success("Role assigned successfully", membership));
     }
 
     @PutMapping("/{id}")

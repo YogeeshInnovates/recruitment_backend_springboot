@@ -26,6 +26,7 @@ public class UserService {
     private final UserRepository userRepository;
     private final OrgMembershipRepository orgMembershipRepository;
     private final OrganizationRepository organizationRepository;
+    private final AuthService authService;
 
     public AuthResponse signup(SignupRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
@@ -80,6 +81,7 @@ public class UserService {
                 .userId(user.getId())
                 .name(user.getName())
                 .email(user.getEmail())
+                .token(authService.generateToken(user))
                 .memberships(membershipInfos)
                 .build();
     }

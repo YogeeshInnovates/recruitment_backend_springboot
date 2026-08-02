@@ -4,6 +4,7 @@ import com.recruitment.dto.OrganizationRequest;
 import com.recruitment.exception.ResourceNotFoundException;
 import com.recruitment.model.OrgMembership;
 import com.recruitment.model.Organization;
+import com.recruitment.model.TenantRole;
 import com.recruitment.model.User;
 import com.recruitment.repository.OrgMembershipRepository;
 import com.recruitment.repository.OrganizationRepository;
@@ -32,13 +33,14 @@ public class OrganizationService {
                 .email(request.getEmail())
                 .phone(request.getPhone())
                 .address(request.getAddress())
+                .createdByUserId(userId)
                 .build();
         org = organizationRepository.save(org);
 
         OrgMembership membership = OrgMembership.builder()
                 .userId(userId)
                 .orgId(org.getId())
-                .role("RECRUITER")
+                .role(TenantRole.ROLE_ORG_ADMIN.name())
                 .build();
         orgMembershipRepository.save(membership);
 
@@ -74,7 +76,7 @@ public class OrganizationService {
         OrgMembership membership = OrgMembership.builder()
                 .userId(user.getId())
                 .orgId(orgId)
-                .role("RECRUITER")
+                .role(TenantRole.ROLE_RECRUITER.name())
                 .build();
         return orgMembershipRepository.save(membership);
     }

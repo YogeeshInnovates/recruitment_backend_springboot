@@ -4,12 +4,17 @@ import com.recruitment.dto.ApiResponse;
 import com.recruitment.dto.AuthResponse;
 import com.recruitment.dto.LoginRequest;
 import com.recruitment.dto.SignupRequest;
+import com.recruitment.model.OrgMembership;
+import com.recruitment.service.AuthService;
 import com.recruitment.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -18,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final UserService userService;
+    private final AuthService authService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
@@ -36,5 +42,17 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> getMe(@PathVariable Long userId) {
         AuthResponse response = userService.getUserById(userId);
         return ResponseEntity.ok(ApiResponse.success("User retrieved successfully", response));
+    }
+
+    @GetMapping("/roles/{userId}")
+    public ResponseEntity<ApiResponse<List<OrgMembership>>> getRoles(@PathVariable Long userId) {
+        List<OrgMembership> memberships = authService.getRolesForUser(userId);
+        return ResponseEntity.ok(ApiResponse.success("Roles retrieved successfully", memberships));
+    }
+
+    @GetMapping("/super-admin/{userId}")
+    public ResponseEntity<ApiResponse<Map<String, Boolean>>> isSuperAdmin(@PathVariable Long userId) {
+        boolean isSuperAdmin = authService.isSuperAdmin(userId);
+        return ResponseEntity.ok(ApiResponse.success("Check completed", Map.of("isSuperAdmin", isSuperAdmin)));
     }
 }
