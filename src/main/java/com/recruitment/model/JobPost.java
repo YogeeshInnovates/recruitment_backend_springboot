@@ -45,6 +45,8 @@ public class JobPost {
 
     private String experienceRequired;
 
+    private String interviewRound;
+
     @Enumerated(EnumType.STRING)
     private EmploymentType employmentType;
 
