@@ -42,29 +42,35 @@ public class InterviewScheduler {
                 String candidateEmail = candidate.getEmail();
                 String candidateName = candidate.getFirstName() + " " + candidate.getLastName();
                 String roomUrl = frontendUrl + "/interview/" + interview.getId();
+                String systemCheckUrl = frontendUrl + "/system-check";
 
                 if (minutesUntil <= 10 && minutesUntil > 5 && interview.getReminderEmailSentAt() == null) {
                     log.info("Sending reminder for interview {} to candidate: {} ({} minutes)",
                             interview.getId(), candidateName, minutesUntil);
                     emailService.sendInterviewReminderEmail(
-                            candidateEmail, candidateName, scheduledAt, (int) minutesUntil
+                            candidateEmail, candidateName, scheduledAt, (int) minutesUntil,
+                            systemCheckUrl
                     );
                     interview.setReminderEmailSentAt(now);
                     interviewRepository.save(interview);
                 }
 
-                if (minutesUntil <= 5 && minutesUntil >= -2 && interview.getLinkEmailSentAt() == null) {
-                    log.info("Interview {} is starting now. Sending room link to candidate: {}",
+                if (minutesUntil <= 2 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
+                    log.info("Sending get-ready email for interview {} to candidate: {}",
                             interview.getId(), candidateName);
 
-                    emailService.sendInterviewLinkEmail(candidateEmail, candidateName, roomUrl, 5);
+                    emailService.sendGetReadyEmail(
+                            candidateEmail, candidateName, roomUrl,
+                            "RM-" + interview.getId()
+                    );
 
                     interview.setLinkEmailSentAt(now);
 
                     if (interview.getInterviewType() == Interview.InterviewType.MANUAL) {
                         String recruiterEmail = interview.getOrganization().getEmail();
                         if (recruiterEmail != null && !recruiterEmail.isEmpty()) {
-                            emailService.sendInterviewLinkEmail(recruiterEmail, "Recruiter", roomUrl, 5);
+                            emailService.sendGetReadyEmail(recruiterEmail, "Recruiter",
+                                    roomUrl, "RM-" + interview.getId());
                         }
                         interview.setStatus(Interview.InterviewStatus.IN_PROGRESS);
                         interview.setStartedAt(now);

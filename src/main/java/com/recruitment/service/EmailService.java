@@ -65,8 +65,9 @@ public class EmailService {
 
     @Async
     public void sendInterviewReminderEmail(String to, String candidateName,
-                                            LocalDateTime scheduledAt, Integer minutesBefore) {
-        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("hh:mm a"));
+                                            LocalDateTime scheduledAt, Integer minutesBefore,
+                                            String systemCheckUrl) {
+        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm a"));
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
@@ -74,11 +75,44 @@ public class EmailService {
                 <div style="padding:30px;">
                 <p>Dear %s,</p>
                 <p style="font-size:18px;font-weight:bold;color:#856404;background:#fff3cd;border:1px solid #ffc107;padding:15px;border-radius:4px;text-align:center;">
-                Your interview starts in %d minutes at %s!</p>
-                <p>Please be in a quiet environment with stable internet.</p>
+                Your interview starts at %s in %d minutes!</p>
+
+                <p style="margin-top:20px;font-weight:bold;color:#0f172a;">Before your interview, please test your system now:</p>
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Check My System</a>
+
+                <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
+                <b>How to prepare:</b><br>
+                - Google Chrome is required. If you don't have it, please download it first: <a href="https://www.google.com/chrome/">Download Chrome</a><br>
+                - Use a speaker or earphones so you can hear the interviewer clearly<br>
+                - Allow camera and microphone access when asked<br>
+                - Stay in a quiet, well-lit place with stable internet<br>
+                - A separate &quot;Get Ready&quot; email with your room link will arrive 2 minutes before your interview</p>
                 </div></div></body></html>
-                """.formatted(candidateName, minutesBefore, formattedDate);
+                """.formatted(candidateName, formattedDate, minutesBefore, systemCheckUrl);
         sendEmailSafe(to, "Interview Reminder - Starting in " + minutesBefore + " minutes", html);
+    }
+
+    @Async
+    public void sendGetReadyEmail(String to, String candidateName, String roomUrl, String roomId) {
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;padding:20px;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:30px;text-align:center;"><h1>Get Ready — Interview Starts Soon</h1></div>
+                <div style="padding:30px;">
+                <p>Dear %s,</p>
+                <p style="font-size:18px;font-weight:bold;color:#1e3a8a;">Your interview is about to begin. Please enter your interview room now.</p>
+                <p style="background:#f3f4f6;padding:12px;border-radius:4px;text-align:center;font-size:15px;color:#1f2937;">
+                <b>Room ID:</b> %s</p>
+                <div style="text-align:center;">
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:white;text-decoration:none;padding:15px 44px;border-radius:8px;font-weight:bold;font-size:18px;margin:18px 0;">Join Interview Room</a>
+                </div>
+                <p style="font-size:13px;color:#64748b;">
+                When you enter, the system will run a quick compatibility check. After that, click &quot;Start Interview&quot;.<br>
+                If you arrive before your scheduled time, the system will ask you to wait until your slot begins.<br>
+                Your interview can last up to 30 minutes. If you do not enter before your slot ends, the interview link will no longer work.</p>
+                </div></div></body></html>
+                """.formatted(candidateName, roomId, roomUrl);
+        sendEmailSafe(to, "Get Ready - Your Interview Room is Open", html);
     }
 
     @Async

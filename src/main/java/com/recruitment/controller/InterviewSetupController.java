@@ -29,6 +29,8 @@ import java.util.*;
 @Slf4j
 public class InterviewSetupController {
 
+    private static final long MAX_DURATION_MINUTES = 30;
+
     private final ResumeParserService resumeParserService;
     private final OrganizationRepository organizationRepository;
     private final JobPostRepository jobPostRepository;
@@ -211,6 +213,18 @@ public class InterviewSetupController {
             return ResponseEntity.notFound().build();
         }
 
+        if (interview.getStartedAt() != null
+                && LocalDateTime.now().isAfter(interview.getStartedAt().plusMinutes(MAX_DURATION_MINUTES))) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("response", "Your interview time is up. Thank you for your time — the interview is now complete.");
+            response.put("question_number", request.getQuestionNumber());
+            response.put("is_finished", true);
+            interview.setStatus(Interview.InterviewStatus.COMPLETED);
+            if (interview.getEndedAt() == null) interview.setEndedAt(LocalDateTime.now());
+            interviewRepository.save(interview);
+            return ResponseEntity.ok(response);
+        }
+
         Application application = interview.getApplication();
         Candidate candidate = application.getCandidate();
         JobPost job = application.getJobPost();
@@ -272,13 +286,21 @@ public class InterviewSetupController {
         if (interview == null) return ResponseEntity.notFound().build();
 
         LocalDateTime now = LocalDateTime.now();
-        if (interview.getScheduledAt() != null && now.isBefore(interview.getScheduledAt())) {
-            long minutesLeft = ChronoUnit.MINUTES.between(now, interview.getScheduledAt());
-            long secondsLeft = ChronoUnit.SECONDS.between(now, interview.getScheduledAt()) % 60;
-            Map<String, Object> error = new HashMap<>();
-            error.put("error", "Please wait. Your interview starts in " + minutesLeft + "m " + secondsLeft + "s.");
-            error.put("scheduledAt", interview.getScheduledAt().toString());
-            return ResponseEntity.badRequest().body(error);
+        if (interview.getScheduledAt() != null) {
+            if (now.isBefore(interview.getScheduledAt())) {
+                long minutesLeft = ChronoUnit.MINUTES.between(now, interview.getScheduledAt());
+                long secondsLeft = ChronoUnit.SECONDS.between(now, interview.getScheduledAt()) % 60;
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Please wait. Your interview starts in " + minutesLeft + "m " + secondsLeft + "s.");
+                error.put("scheduledAt", interview.getScheduledAt().toString());
+                return ResponseEntity.badRequest().body(error);
+            }
+            if (now.isAfter(interview.getScheduledAt().plusMinutes(MAX_DURATION_MINUTES))) {
+                Map<String, Object> error = new HashMap<>();
+                error.put("error", "Your interview slot has ended. Please contact the recruiter.");
+                error.put("slotClosed", true);
+                return ResponseEntity.badRequest().body(error);
+            }
         }
 
         interview.setStatus(Interview.InterviewStatus.IN_PROGRESS);
