@@ -263,6 +263,100 @@ public class InterviewSetupController {
         return ResponseEntity.ok(response);
     }
 
+    @PostMapping("/callback")
+    public ResponseEntity<Map<String, Object>> scoringCallback(@RequestBody Map<String, Object> payload) {
+        Object idValue = payload.get("interview_id");
+        if (idValue == null) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Missing interview_id");
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        Long interviewId;
+        try {
+            interviewId = Long.parseLong(String.valueOf(idValue).trim());
+        } catch (NumberFormatException e) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Invalid interview_id: " + idValue);
+            return ResponseEntity.badRequest().body(error);
+        }
+
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        try {
+            Double overall = toDouble(payload.get("overall_score"));
+            Double technical = toDouble(payload.get("technical_score"));
+            Double communication = toDouble(payload.get("communication_score"));
+            String recommendation = payload.get("recommendation") != null
+                    ? String.valueOf(payload.get("recommendation")) : null;
+            String summary = payload.get("summary") != null
+                    ? String.valueOf(payload.get("summary")) : null;
+
+            interview.setAiScore(overall);
+            interview.setAiRecommendation(recommendation);
+            interview.setNotes(buildScoringNotes(overall, technical, communication,
+                    payload.get("strengths"), payload.get("weaknesses"), summary,
+                    payload.get("question_scores"), payload.get("accumulated_score")));
+            interview.setStatus(Interview.InterviewStatus.COMPLETED);
+            if (interview.getEndedAt() == null) {
+                interview.setEndedAt(LocalDateTime.now());
+            }
+
+            Object transcriptObj = payload.get("transcript_sheet");
+            if (transcriptObj != null && !String.valueOf(transcriptObj).isEmpty()) {
+                InterviewTranscript transcript = InterviewTranscript.builder()
+                        .interview(interview)
+                        .speaker("AI-INTERVIEW")
+                        .content(String.valueOf(transcriptObj))
+                        .timestamp(LocalDateTime.now())
+                        .build();
+                interview.getTranscripts().add(transcript);
+            }
+
+            interviewRepository.save(interview);
+
+            log.info("Scoring callback applied for interview {}", interviewId);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "scored");
+            response.put("interviewId", interviewId);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Failed to process scoring callback for interview {}: {}", interviewId, e.getMessage(), e);
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Failed to process scoring callback: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(error);
+        }
+    }
+
+    private Double toDouble(Object value) {
+        if (value == null) return null;
+        try {
+            if (value instanceof Number) return ((Number) value).doubleValue();
+            return Double.parseDouble(String.valueOf(value).trim());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String buildScoringNotes(Double overall, Double technical, Double communication,
+                                     Object strengths, Object weaknesses, String summary,
+                                     Object questionScores, Object accumulatedScore) {
+        StringBuilder sb = new StringBuilder();
+        if (overall != null) sb.append("Overall Score: ").append(overall).append("\n");
+        if (technical != null) sb.append("Technical Score: ").append(technical).append("\n");
+        if (communication != null) sb.append("Communication Score: ").append(communication).append("\n");
+        if (questionScores != null) sb.append("Per-Question Scores: ").append(questionScores).append("\n");
+        if (accumulatedScore != null) sb.append("Accumulated Score: ").append(accumulatedScore).append("\n");
+        if (strengths != null) sb.append("Strengths: ").append(strengths).append("\n");
+        if (weaknesses != null) sb.append("Weaknesses: ").append(weaknesses).append("\n");
+        if (summary != null && !summary.isEmpty()) sb.append("Summary: ").append(summary);
+        return sb.toString();
+    }
+
     private String buildSystemPrompt(String candidateName, String experience,
                                       String skills, String resumeText,
                                       String jobDescription, String jobTitle) {
