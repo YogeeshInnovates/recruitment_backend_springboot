@@ -24,7 +24,8 @@ public class EmailService {
 
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
-                                       String round, LocalDateTime scheduledAt) {
+                                       String round, LocalDateTime scheduledAt,
+                                       String systemCheckUrl) {
         String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy"));
         String formattedTime = scheduledAt.format(DateTimeFormatter.ofPattern("hh:mm a"));
         String html = """
@@ -38,10 +39,20 @@ public class EmailService {
                 <b>Round:</b> %s<br>
                 <b>Date:</b> %s<br>
                 <b>Time:</b> %s</p>
-                <p>Please be online at your scheduled time in a quiet, well-lit environment with a stable internet connection. You will receive the interview join link automatically when your slot begins.</p>
-                <p>Please do not share this schedule with anyone else.</p>
+
+                <p style="margin-top:20px;font-weight:bold;color:#0f172a;">Before your interview, please test your system now:</p>
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Check My System</a>
+
+                <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
+                <b>How to prepare:</b><br>
+                - Google Chrome is required. If you don't have it, please download it first: <a href="https://www.google.com/chrome/">Download Chrome</a><br>
+                - Use a speaker or earphones so you can hear the interviewer clearly<br>
+                - Allow camera and microphone access when asked — the interview cannot start without them<br>
+                - Stay in a quiet, well-lit place with stable internet<br>
+                - You will receive your room join link automatically a few minutes before your slot</p>
+                <p>Please be online at your scheduled time. Please do not share this schedule with anyone else.</p>
                 </div></div></body></html>
-                """.formatted(candidateName, role, round, formattedDate, formattedTime);
+                """.formatted(candidateName, role, round, formattedDate, formattedTime, systemCheckUrl);
         sendEmailSafe(to, "Your Interview is Scheduled - " + role, html);
     }
 

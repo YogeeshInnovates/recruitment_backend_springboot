@@ -13,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -159,6 +160,8 @@ public class AiBatchController {
                     item.put("interviewId", iv.getId());
                     item.put("scheduledDate", iv.getScheduledAt().format(dateFmt));
                     item.put("scheduledTime", iv.getScheduledAt().format(timeFmt));
+                    item.put("scheduledAt", iv.getScheduledAt()
+                            .atZone(ZoneId.systemDefault()).toInstant().toString());
                     item.put("interviewUrl", "/interview/" + iv.getId());
                 }
             }
@@ -202,7 +205,8 @@ public class AiBatchController {
             row.put("candidateId", candidate.getId());
             row.put("name", candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
             row.put("email", candidate.getEmail());
-            row.put("scheduledAt", iv.getScheduledAt() != null ? iv.getScheduledAt().toString() : null);
+            row.put("scheduledAt", iv.getScheduledAt() != null
+                    ? iv.getScheduledAt().atZone(ZoneId.systemDefault()).toInstant().toString() : null);
             row.put("scheduledDate", iv.getScheduledAt() != null ? iv.getScheduledAt().format(dateFmt) : null);
             row.put("scheduledTime", iv.getScheduledAt() != null ? iv.getScheduledAt().format(timeFmt) : null);
             row.put("status", iv.getStatus().name());

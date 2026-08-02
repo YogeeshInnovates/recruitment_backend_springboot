@@ -19,6 +19,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -127,7 +128,8 @@ public class InterviewSetupController {
             response.put("candidateEmail", parsed.getEmail());
             response.put("experience", parsed.getExperience());
             response.put("skills", parsed.getSkills());
-            response.put("scheduledAt", interview.getScheduledAt());
+            response.put("scheduledAt", interview.getScheduledAt() != null
+                    ? interview.getScheduledAt().atZone(ZoneId.systemDefault()).toInstant().toString() : null);
             response.put("jitsiRoomId", roomId);
             response.put("interviewUrl", interviewUrl);
             response.put("jobDescription", jobDescription);
@@ -193,7 +195,8 @@ public class InterviewSetupController {
         response.put("jobTitle", job.getTitle());
         response.put("status", interview.getStatus().name());
         response.put("round", interview.getRound());
-        response.put("scheduledAt", interview.getScheduledAt() != null ? interview.getScheduledAt().toString() : null);
+        response.put("scheduledAt", interview.getScheduledAt() != null
+                ? interview.getScheduledAt().atZone(ZoneId.systemDefault()).toInstant().toString() : null);
         response.put("aiScore", interview.getAiScore());
         response.put("aiRecommendation", interview.getAiRecommendation());
         response.put("jitsiRoomId", interview.getJitsiRoomId());
@@ -292,7 +295,8 @@ public class InterviewSetupController {
                 long secondsLeft = ChronoUnit.SECONDS.between(now, interview.getScheduledAt()) % 60;
                 Map<String, Object> error = new HashMap<>();
                 error.put("error", "Please wait. Your interview starts in " + minutesLeft + "m " + secondsLeft + "s.");
-                error.put("scheduledAt", interview.getScheduledAt().toString());
+                error.put("scheduledAt", interview.getScheduledAt()
+                        .atZone(ZoneId.systemDefault()).toInstant().toString());
                 return ResponseEntity.badRequest().body(error);
             }
             if (now.isAfter(interview.getScheduledAt().plusMinutes(MAX_DURATION_MINUTES))) {

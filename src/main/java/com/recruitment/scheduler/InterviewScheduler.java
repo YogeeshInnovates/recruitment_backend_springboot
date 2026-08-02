@@ -55,7 +55,7 @@ public class InterviewScheduler {
                     interviewRepository.save(interview);
                 }
 
-                if (minutesUntil <= 2 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
+                if (minutesUntil <= 3 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
                     log.info("Sending get-ready email for interview {} to candidate: {}",
                             interview.getId(), candidateName);
 
