@@ -42,10 +42,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/auth/login", "/api/auth/signup").permitAll()
                         .requestMatchers("/api/warmup", "/api/interview/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/interview/*").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/interview/*/transcript",
+                                "/api/interview/*/report/*").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/interview/*/chat",
                                 "/api/interview/*/start",
-                                "/api/interview/*/end").permitAll()
+                                "/api/interview/*/end",
+                                "/api/interview/*/activity").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex

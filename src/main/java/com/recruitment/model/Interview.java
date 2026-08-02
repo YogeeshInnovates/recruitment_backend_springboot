@@ -48,6 +48,12 @@ public class Interview {
 
     private String jitsiRoomId;
 
+    private String round;
+
+    private LocalDateTime reminderEmailSentAt;
+
+    private LocalDateTime linkEmailSentAt;
+
     private Double aiScore;
 
     private String aiRecommendation;

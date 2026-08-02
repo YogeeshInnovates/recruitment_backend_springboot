@@ -10,4 +10,6 @@ import java.util.List;
 public interface InterviewTranscriptRepository extends JpaRepository<InterviewTranscript, Long> {
 
     List<InterviewTranscript> findAllByInterviewIdOrderByQuestionNumberAsc(Long interviewId);
+
+    List<InterviewTranscript> findByInterviewIdOrderByTimestampAsc(Long interviewId);
 }

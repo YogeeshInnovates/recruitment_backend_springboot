@@ -8,13 +8,18 @@ import lombok.RequiredArgsConstructor;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @RestController
@@ -30,6 +35,8 @@ public class InterviewSetupController {
     private final CandidateRepository candidateRepository;
     private final ApplicationRepository applicationRepository;
     private final InterviewRepository interviewRepository;
+    private final InterviewTranscriptRepository interviewTranscriptRepository;
+    private final CandidateActivityLogRepository candidateActivityLogRepository;
     private final EmailService emailService;
     private final WebClient webClient;
 
@@ -183,6 +190,10 @@ public class InterviewSetupController {
         response.put("jobDescription", job.getDescription());
         response.put("jobTitle", job.getTitle());
         response.put("status", interview.getStatus().name());
+        response.put("round", interview.getRound());
+        response.put("scheduledAt", interview.getScheduledAt() != null ? interview.getScheduledAt().toString() : null);
+        response.put("aiScore", interview.getAiScore());
+        response.put("aiRecommendation", interview.getAiRecommendation());
         response.put("jitsiRoomId", interview.getJitsiRoomId());
 
         return ResponseEntity.ok(response);
@@ -226,6 +237,23 @@ public class InterviewSetupController {
             response.put("running_score", aiResponse.get("running_score"));
             response.put("is_finished", aiResponse.get("is_finished"));
 
+            try {
+                LocalDateTime now = LocalDateTime.now();
+                interviewTranscriptRepository.save(InterviewTranscript.builder()
+                        .interview(interview).speaker("candidate")
+                        .content(request.getMessage())
+                        .timestamp(now).questionNumber(request.getQuestionNumber()).build());
+                String aiReply = aiResponse.get("response") != null ? String.valueOf(aiResponse.get("response")) : "";
+                if (!aiReply.isEmpty()) {
+                    interviewTranscriptRepository.save(InterviewTranscript.builder()
+                            .interview(interview).speaker("ai_agent")
+                            .content(aiReply)
+                            .timestamp(now.plusSeconds(1)).questionNumber(request.getQuestionNumber()).build());
+                }
+            } catch (Exception saveErr) {
+                log.warn("Failed to persist chat transcript: {}", saveErr.getMessage());
+            }
+
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
@@ -243,13 +271,176 @@ public class InterviewSetupController {
         Interview interview = interviewRepository.findById(interviewId).orElse(null);
         if (interview == null) return ResponseEntity.notFound().build();
 
+        LocalDateTime now = LocalDateTime.now();
+        if (interview.getScheduledAt() != null && now.isBefore(interview.getScheduledAt())) {
+            long minutesLeft = ChronoUnit.MINUTES.between(now, interview.getScheduledAt());
+            long secondsLeft = ChronoUnit.SECONDS.between(now, interview.getScheduledAt()) % 60;
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Please wait. Your interview starts in " + minutesLeft + "m " + secondsLeft + "s.");
+            error.put("scheduledAt", interview.getScheduledAt().toString());
+            return ResponseEntity.badRequest().body(error);
+        }
+
         interview.setStatus(Interview.InterviewStatus.IN_PROGRESS);
-        interview.setStartedAt(LocalDateTime.now());
+        interview.setStartedAt(now);
         interviewRepository.save(interview);
+
+        if (interview.getInterviewType() == Interview.InterviewType.AGENT) {
+            triggerAiSetup(interview);
+        }
 
         Map<String, Object> response = new HashMap<>();
         response.put("status", "started");
         return ResponseEntity.ok(response);
+    }
+
+    private void triggerAiSetup(Interview interview) {
+        try {
+            Application app = interview.getApplication();
+            Candidate candidate = app.getCandidate();
+            JobPost job = app.getJobPost();
+
+            Map<String, Object> body = new HashMap<>();
+            body.put("interview_id", String.valueOf(interview.getId()));
+            body.put("job_description", job.getDescription());
+            body.put("candidate_resume_text", candidate.getResumeText());
+            body.put("candidate_name", candidate.getFirstName()
+                    + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
+            body.put("max_questions", 15);
+            body.put("round", interview.getRound() != null ? interview.getRound() : "Technical Round 1");
+
+            webClient.post()
+                    .uri("/api/ai/interview/setup")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(90))
+                    .block();
+            log.info("AI interview session ready for interview {}", interview.getId());
+        } catch (Exception e) {
+            log.warn("Failed to prepare AI session for interview {} (non-fatal): {}", interview.getId(), e.getMessage());
+        }
+    }
+
+    @PostMapping("/{interviewId}/activity")
+    public ResponseEntity<Map<String, Object>> logActivity(
+            @PathVariable Long interviewId,
+            @RequestBody ActivityRequest request) {
+        if (interviewRepository.findById(interviewId).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        CandidateActivityLog logEntry = CandidateActivityLog.builder()
+                .interviewId(interviewId)
+                .eventType(request.getEventType())
+                .detail(request.getDetail())
+                .occurredAt(LocalDateTime.now())
+                .build();
+        candidateActivityLogRepository.save(logEntry);
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "logged");
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{interviewId}/transcript")
+    public ResponseEntity<List<Map<String, Object>>> getTranscript(@PathVariable Long interviewId) {
+        List<InterviewTranscript> rows = interviewTranscriptRepository.findByInterviewIdOrderByTimestampAsc(interviewId);
+        List<Map<String, Object>> out = new ArrayList<>();
+        for (InterviewTranscript t : rows) {
+            Map<String, Object> row = new HashMap<>();
+            row.put("speaker", t.getSpeaker());
+            row.put("content", t.getContent());
+            row.put("timestamp", t.getTimestamp() != null ? t.getTimestamp().toString() : null);
+            row.put("questionNumber", t.getQuestionNumber());
+            out.add(row);
+        }
+        return ResponseEntity.ok(out);
+    }
+
+    @GetMapping("/{interviewId}/report/score")
+    public ResponseEntity<byte[]> scoreReport(@PathVariable Long interviewId) throws IOException {
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) return ResponseEntity.notFound().build();
+        Application app = interview.getApplication();
+        Candidate candidate = app.getCandidate();
+        JobPost job = app.getJobPost();
+
+        String csv = "Candidate,Email,Job,Round,Status,Overall Score,Recommendation,Started At,Ended At\n"
+                + String.join(",", new String[]{
+                csvEscape(candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : "")),
+                csvEscape(candidate.getEmail()),
+                csvEscape(job.getTitle()),
+                csvEscape(interview.getRound()),
+                String.valueOf(interview.getStatus()),
+                String.valueOf(interview.getAiScore()),
+                csvEscape(interview.getAiRecommendation()),
+                String.valueOf(interview.getStartedAt()),
+                String.valueOf(interview.getEndedAt())
+        }) + "\n"
+                + "Notes,\"" + (interview.getNotes() != null ? interview.getNotes().replace("\"", "\"\"") : "") + "\"\n";
+
+        return attachment("interview-" + interviewId + "-score.csv", csv, "text/csv");
+    }
+
+    @GetMapping("/{interviewId}/report/transcript")
+    public ResponseEntity<byte[]> transcriptReport(@PathVariable Long interviewId) throws IOException {
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) return ResponseEntity.notFound().build();
+        Application app = interview.getApplication();
+        Candidate candidate = app.getCandidate();
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("INTERVIEW TRANSCRIPT\n");
+        sb.append("====================\n");
+        sb.append("Candidate: ").append(candidate.getFirstName()).append(" ")
+                .append(candidate.getLastName() != null ? candidate.getLastName() : "").append("\n");
+        sb.append("Round: ").append(interview.getRound()).append("\n\n");
+
+        List<InterviewTranscript> rows = interviewTranscriptRepository.findByInterviewIdOrderByTimestampAsc(interviewId);
+        if (rows.isEmpty()) {
+            for (InterviewTranscript t : interview.getTranscripts()) {
+                sb.append(t.getContent()).append("\n\n");
+            }
+        } else {
+            for (InterviewTranscript t : rows) {
+                String speaker = "AI Interviewer".equals(t.getSpeaker()) || "ai_agent".equals(t.getSpeaker())
+                        ? "AI Interviewer" : "Candidate";
+                sb.append("[").append(speaker).append("]\n").append(t.getContent()).append("\n\n");
+            }
+        }
+
+        return attachment("interview-" + interviewId + "-qa.txt", sb.toString(), "text/plain");
+    }
+
+    @GetMapping("/{interviewId}/report/activity")
+    public ResponseEntity<byte[]> activityReport(@PathVariable Long interviewId) throws IOException {
+        List<CandidateActivityLog> logs = candidateActivityLogRepository.findAllByInterviewIdOrderByOccurredAt(interviewId);
+        StringBuilder sb = new StringBuilder();
+        sb.append("Event Type,Occurred At,Detail\n");
+        for (CandidateActivityLog l : logs) {
+            sb.append(csvEscape(l.getEventType())).append(",")
+                    .append(String.valueOf(l.getOccurredAt())).append(",")
+                    .append(csvEscape(l.getDetail())).append("\n");
+        }
+        return attachment("interview-" + interviewId + "-activity.csv", sb.toString(), "text/csv");
+    }
+
+    private ResponseEntity<byte[]> attachment(String fileName, String content, String contentType) {
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
+                .contentType(MediaType.parseMediaType(contentType))
+                .body(content.getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String csvEscape(String value) {
+        if (value == null) return "";
+        String v = value.replace("\"", "\"\"");
+        return v.contains(",") || v.contains("\n") ? "\"" + v + "\"" : v;
+    }
+
+    @Data
+    public static class ActivityRequest {
+        private String eventType;
+        private String detail;
     }
 
     @PostMapping("/{interviewId}/end")

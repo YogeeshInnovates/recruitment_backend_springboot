@@ -23,10 +23,32 @@ public class EmailService {
     private String frontendUrl;
 
     @Async
+    public void sendScheduledSlotEmail(String to, String candidateName, String role,
+                                       String round, LocalDateTime scheduledAt) {
+        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy"));
+        String formattedTime = scheduledAt.format(DateTimeFormatter.ofPattern("hh:mm a"));
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;padding:20px;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:30px;text-align:center;"><h1>Interview Scheduled</h1></div>
+                <div style="padding:30px;">
+                <p>Dear %s,</p>
+                <p>Congratulations! You have been shortlisted for the <b>%s</b> position.</p>
+                <p style="background:#f3f4f6;padding:15px;border-radius:4px;font-size:15px;color:#1f2937;">
+                <b>Round:</b> %s<br>
+                <b>Date:</b> %s<br>
+                <b>Time:</b> %s</p>
+                <p>Please be online at your scheduled time in a quiet, well-lit environment with a stable internet connection. You will receive the interview join link automatically when your slot begins.</p>
+                <p>Please do not share this schedule with anyone else.</p>
+                </div></div></body></html>
+                """.formatted(candidateName, role, round, formattedDate, formattedTime);
+        sendEmailSafe(to, "Your Interview is Scheduled - " + role, html);
+    }
+
+    @Async
     public void sendInterviewScheduledEmail(String to, String candidateName,
                                              LocalDateTime scheduledAt, String interviewType,
-                                             String orgName) {
-        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm a"));
+                                             String orgName) {        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm a"));
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">

@@ -2,6 +2,7 @@ package com.recruitment.controller;
 
 import com.recruitment.model.*;
 import com.recruitment.repository.*;
+import com.recruitment.service.InterviewBatchSchedulerService;
 import com.recruitment.service.ResumeParserService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -12,6 +13,7 @@ import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.Duration;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -28,6 +30,9 @@ public class AiBatchController {
     private final JobPostRepository jobPostRepository;
     private final CandidateRepository candidateRepository;
     private final ApplicationRepository applicationRepository;
+    private final InterviewRepository interviewRepository;
+    private final CandidateActivityLogRepository candidateActivityLogRepository;
+    private final InterviewBatchSchedulerService interviewBatchSchedulerService;
     private final WebClient webClient;
 
     @PostMapping("/setup")
@@ -65,6 +70,7 @@ public class AiBatchController {
 
         List<Map<String, Object>> results = new ArrayList<>();
         List<Map<String, Object>> candidatesForAi = new ArrayList<>();
+        List<Application> applications = new ArrayList<>();
 
         for (MultipartFile file : files) {
             ResumeParserService.ParsedResume parsed = resumeParserService.parse(file);
@@ -88,7 +94,8 @@ public class AiBatchController {
                     .candidate(candidate)
                     .status(Application.ApplicationStatus.SUBMITTED)
                     .build();
-            applicationRepository.save(application);
+            application = applicationRepository.save(application);
+            applications.add(application);
 
             Map<String, Object> item = new HashMap<>();
             item.put("fileName", file.getOriginalFilename());
@@ -132,6 +139,31 @@ public class AiBatchController {
             log.warn("Failed to index batch {} into vector DB (non-fatal): {}", batchId, e.getMessage());
         }
 
+        List<Interview> scheduledInterviews = interviewBatchSchedulerService.allocateSlots(org, job, applications, round);
+
+        Map<Long, Interview> interviewByAppId = new HashMap<>();
+        for (Interview iv : scheduledInterviews) {
+            interviewByAppId.put(iv.getApplication().getId(), iv);
+        }
+
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("EEE, MMM d");
+        for (Map<String, Object> item : results) {
+            Long candidateId = (Long) item.get("candidateId");
+            Application matched = applications.stream()
+                    .filter(a -> a.getCandidate().getId().equals(candidateId))
+                    .findFirst().orElse(null);
+            if (matched != null) {
+                Interview iv = interviewByAppId.get(matched.getId());
+                if (iv != null) {
+                    item.put("interviewId", iv.getId());
+                    item.put("scheduledDate", iv.getScheduledAt().format(dateFmt));
+                    item.put("scheduledTime", iv.getScheduledAt().format(timeFmt));
+                    item.put("interviewUrl", "/interview/" + iv.getId());
+                }
+            }
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", "ready");
         response.put("jobId", job.getId());
@@ -139,8 +171,50 @@ public class AiBatchController {
         response.put("role", role);
         response.put("round", round);
         response.put("vectorIndexed", aiResult != null);
+        response.put("interviewsScheduled", scheduledInterviews.size());
         response.put("candidates", results);
 
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/interviews")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'HR', 'RECRUITER', 'SUPER_ADMIN')")
+    public ResponseEntity<List<Map<String, Object>>> listInterviews(@PathVariable Long orgId,
+                                                                    @RequestParam(required = false) Long jobId) {
+        List<Interview> interviews = interviewRepository.findAllByOrganizationId(orgId);
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("hh:mm a");
+        DateTimeFormatter dateFmt = DateTimeFormatter.ofPattern("EEE, MMM d");
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (Interview iv : interviews) {
+            if (iv.getInterviewType() != Interview.InterviewType.AGENT) continue;
+            Application app = iv.getApplication();
+            if (app == null) continue;
+            Candidate candidate = app.getCandidate();
+            JobPost job = app.getJobPost();
+            if (jobId != null && (job == null || !job.getId().equals(jobId))) continue;
+
+            Map<String, Object> row = new HashMap<>();
+            row.put("interviewId", iv.getId());
+            row.put("jobId", job != null ? job.getId() : null);
+            row.put("jobTitle", job != null ? job.getTitle() : "");
+            row.put("round", iv.getRound());
+            row.put("candidateId", candidate.getId());
+            row.put("name", candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
+            row.put("email", candidate.getEmail());
+            row.put("scheduledAt", iv.getScheduledAt() != null ? iv.getScheduledAt().toString() : null);
+            row.put("scheduledDate", iv.getScheduledAt() != null ? iv.getScheduledAt().format(dateFmt) : null);
+            row.put("scheduledTime", iv.getScheduledAt() != null ? iv.getScheduledAt().format(timeFmt) : null);
+            row.put("status", iv.getStatus().name());
+            row.put("aiScore", iv.getAiScore());
+            row.put("aiRecommendation", iv.getAiRecommendation());
+            row.put("startedAt", iv.getStartedAt() != null ? iv.getStartedAt().toString() : null);
+            row.put("endedAt", iv.getEndedAt() != null ? iv.getEndedAt().toString() : null);
+            row.put("activityCount", candidateActivityLogRepository.countByInterviewId(iv.getId()));
+            row.put("interviewUrl", "/interview/" + iv.getId());
+            result.add(row);
+        }
+        result.sort(Comparator.comparing(m -> m.get("scheduledAt") == null ? "" : (String) m.get("scheduledAt")));
+        return ResponseEntity.ok(result);
     }
 }
