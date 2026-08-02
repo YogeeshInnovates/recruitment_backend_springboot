@@ -39,7 +39,8 @@ public class InterviewSetupController {
     @PostMapping("/setup")
     public ResponseEntity<Map<String, Object>> setupInterview(
             @RequestParam("jobDescription") String jobDescription,
-            @RequestParam("resume") MultipartFile resumeFile) {
+            @RequestParam("resume") MultipartFile resumeFile,
+            @RequestParam(value = "round", defaultValue = "Technical Round 1") String round) {
 
         try {
             ResumeParserService.ParsedResume parsed = resumeParserService.parse(resumeFile);
@@ -63,6 +64,7 @@ public class InterviewSetupController {
                     .experienceRequired(parsed.getExperience())
                     .employmentType(JobPost.EmploymentType.FULL_TIME)
                     .status(JobPost.JobStatus.ACTIVE)
+                    .interviewRound(round)
                     .build();
             job = jobPostRepository.save(job);
 
@@ -133,6 +135,7 @@ public class InterviewSetupController {
                 aiSetupBody.put("candidate_resume_text", parsed.getRawText());
                 aiSetupBody.put("candidate_name", parsed.getName());
                 aiSetupBody.put("max_questions", 15);
+                aiSetupBody.put("round", round);
 
                 webClient.post()
                         .uri("/api/ai/interview/setup")
