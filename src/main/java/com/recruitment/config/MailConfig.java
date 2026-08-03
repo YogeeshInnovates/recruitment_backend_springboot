@@ -15,8 +15,16 @@ public class MailConfig {
     @ConditionalOnProperty(name = "spring.mail.host", havingValue = "smtp.gmail.com")
     public JavaMailSender javaMailSender() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
-        mailSender.setHost("smtp.gmail.com");
-        mailSender.setPort(587);
+
+        String host = System.getenv("MAIL_HOST");
+        mailSender.setHost(host != null && !host.isEmpty() ? host : "smtp.gmail.com");
+
+        String portStr = System.getenv("MAIL_PORT");
+        int port = 587;
+        if (portStr != null && !portStr.isEmpty()) {
+            try { port = Integer.parseInt(portStr); } catch (NumberFormatException ignored) { }
+        }
+        mailSender.setPort(port);
 
         String username = System.getenv("MAIL_USERNAME");
         String password = System.getenv("MAIL_PASSWORD");
@@ -30,9 +38,14 @@ public class MailConfig {
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.smtp.auth", "true");
-        props.put("mail.smtp.starttls.enable", "true");
-        props.put("mail.smtp.connectiontimeout", "5000");
-        props.put("mail.smtp.timeout", "5000");
+        if (port == 465) {
+            props.put("mail.smtp.ssl.enable", "true");
+        } else {
+            props.put("mail.smtp.starttls.enable", "true");
+        }
+        props.put("mail.smtp.connectiontimeout", "15000");
+        props.put("mail.smtp.timeout", "15000");
+        props.put("mail.smtp.writetimeout", "15000");
 
         return mailSender;
     }
