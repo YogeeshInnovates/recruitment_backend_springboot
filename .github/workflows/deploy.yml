@@ -43,11 +43,27 @@ jobs:
 
       - name: Make package public
         run: |
-          gh api -X PATCH /user/packages/container/${{ steps.repo.outputs.name }} \
-            --field visibility=public
+          PACKAGE="recruitment_backend_springboot"
+          echo "== repo-scoped endpoint =="
+          curl -sS -o /dev/null -w "http: %{http_code}\n" -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -d '{"visibility":"public"}' \
+            "https://api.github.com/repos/${{ github.repository }}/packages/container/$PACKAGE" || true
+          echo "== user-scoped endpoint =="
+          curl -sS -o /dev/null -w "http: %{http_code}\n" -X PATCH \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -H "Content-Type: application/json" \
+            -d '{"visibility":"public"}' \
+            "https://api.github.com/user/packages/container/$PACKAGE" || true
+          echo "== verify anonymous pull =="
+          curl -sS -o /dev/null -w "manifest http: %{http_code}\n" \
+            -H "Accept: application/vnd.docker.distribution.manifest.v2+json" \
+            "https://ghcr.io/v2/yogeeshinnovates/$PACKAGE/manifests/latest" || true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        continue-on-error: true
 
       - name: Trigger Render Deploy
         env:
