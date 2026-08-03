@@ -24,6 +24,11 @@ public class WebClientConfig {
                 .build();
     }
 
+    @Bean
+    public WebClient emailApiWebClient() {
+        return WebClient.builder().build();
+    }
+
     private ExchangeFilterFunction addApiKeyHeader() {
         return (request, next) -> {
             ClientRequest filteredRequest = ClientRequest.from(request)

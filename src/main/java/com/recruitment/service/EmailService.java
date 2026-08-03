@@ -8,9 +8,12 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -18,12 +21,16 @@ import java.time.format.DateTimeFormatter;
 public class EmailService {
 
     private final JavaMailSender mailSender;
+    private final WebClient emailApiWebClient;
 
     @Value("${frontend.url}")
     private String frontendUrl;
 
     @Value("${MAIL_USERNAME:}")
     private String mailUsername;
+
+    @Value("${EMAIL_API_KEY:}")
+    private String emailApiKey;
 
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
@@ -148,6 +155,9 @@ public class EmailService {
     }
 
     private String sendEmailSafe(String to, String subject, String htmlContent) {
+        if (emailApiKey != null && !emailApiKey.isEmpty()) {
+            return sendViaBrevo(to, subject, htmlContent);
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -168,6 +178,29 @@ public class EmailService {
             log.info("Subject: {}", subject);
             log.info("From: {}", mailUsername);
             log.info("=== END EMAIL ===");
+            return e.getMessage();
+        }
+    }
+
+    private String sendViaBrevo(String to, String subject, String htmlContent) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "sender", Map.of("email", mailUsername, "name", "Recruitment Platform"),
+                    "to", List.of(Map.of("email", to)),
+                    "subject", subject,
+                    "htmlContent", htmlContent);
+            String resp = emailApiWebClient.post()
+                    .uri("https://api.brevo.com/v3/smtp/email")
+                    .header("api-key", emailApiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            log.info("Email sent via Brevo to {}: {} ({})", to, subject, resp);
+            return null;
+        } catch (Exception e) {
+            log.warn("Could not send email via Brevo to {}: {}", to, e.getMessage());
             return e.getMessage();
         }
     }
