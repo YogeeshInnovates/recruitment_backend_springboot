@@ -41,7 +41,9 @@ public class InterviewScheduler {
                 Candidate candidate = interview.getApplication().getCandidate();
                 String candidateEmail = candidate.getEmail();
                 String candidateName = candidate.getFirstName() + " " + candidate.getLastName();
-                String baseUrl = frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "";
+                String baseUrl = interview.getFrontendBaseUrl() != null && !interview.getFrontendBaseUrl().isEmpty()
+                        ? interview.getFrontendBaseUrl().replaceAll("/+$", "")
+                        : EmailService.resolveBaseUrl(frontendUrl, null);
                 String roomUrl = baseUrl + "/interview/" + interview.getId();
                 String systemCheckUrl = baseUrl + "/system-check";
 

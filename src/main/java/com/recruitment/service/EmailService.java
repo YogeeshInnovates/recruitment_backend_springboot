@@ -45,6 +45,21 @@ public class EmailService {
                 .format(DateTimeFormatter.ofPattern(pattern));
     }
 
+    public static String resolveBaseUrl(String configured, String origin) {
+        if (configured != null) {
+            String trimmed = configured.trim();
+            String withoutScheme = trimmed.replaceAll("^[a-zA-Z][a-zA-Z0-9+.-]*://", "");
+            if ((trimmed.startsWith("http://") || trimmed.startsWith("https://"))
+                    && !withoutScheme.isEmpty()) {
+                return trimmed.replaceAll("/+$", "");
+            }
+        }
+        if (origin != null && !origin.isBlank()) {
+            return origin.replaceAll("/+$", "");
+        }
+        return "";
+    }
+
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
                                        String round, LocalDateTime scheduledAt,

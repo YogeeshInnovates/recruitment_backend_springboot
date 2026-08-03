@@ -54,6 +54,8 @@ public class Interview {
 
     private LocalDateTime linkEmailSentAt;
 
+    private String frontendBaseUrl;
+
     private Double aiScore;
 
     private String aiRecommendation;

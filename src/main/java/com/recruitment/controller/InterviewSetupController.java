@@ -50,7 +50,9 @@ public class InterviewSetupController {
     public ResponseEntity<Map<String, Object>> setupInterview(
             @RequestParam("jobDescription") String jobDescription,
             @RequestParam("resume") MultipartFile resumeFile,
-            @RequestParam(value = "round", defaultValue = "Technical Round 1") String round) {
+            @RequestParam(value = "round", defaultValue = "Technical Round 1") String round,
+            @RequestHeader(value = "Origin", required = false) String origin,
+            @RequestHeader(value = "Referer", required = false) String referer) {
 
         try {
             ResumeParserService.ParsedResume parsed = resumeParserService.parse(resumeFile);
@@ -108,10 +110,14 @@ public class InterviewSetupController {
                     .status(Interview.InterviewStatus.SCHEDULED)
                     .scheduledAt(LocalDateTime.now().plusMinutes(5))
                     .jitsiRoomId(roomId)
+                    .frontendBaseUrl(EmailService.resolveBaseUrl(frontendUrl,
+                            origin != null && !origin.isBlank() ? origin : referer))
                     .build();
             interview = interviewRepository.save(interview);
 
-            String interviewUrl = frontendUrl + "/interview/" + interview.getId();
+            String interviewUrl = (interview.getFrontendBaseUrl() == null || interview.getFrontendBaseUrl().isEmpty()
+                    ? frontendUrl : interview.getFrontendBaseUrl())
+                    + "/interview/" + interview.getId();
 
             if (parsed.getEmail() != null && !parsed.getEmail().isEmpty()) {
                 emailService.sendInterviewLinkEmail(

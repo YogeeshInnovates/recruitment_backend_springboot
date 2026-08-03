@@ -43,7 +43,9 @@ public class AiBatchController {
             @RequestParam("files") MultipartFile[] files,
             @RequestParam("jobDescription") String jobDescription,
             @RequestParam("role") String role,
-            @RequestParam("round") String round) {
+            @RequestParam("round") String round,
+            @RequestHeader(value = "Origin", required = false) String origin,
+            @RequestHeader(value = "Referer", required = false) String referer) {
 
         if (files == null || files.length == 0) {
             return ResponseEntity.badRequest().body(Map.of("error", "At least one resume is required"));
@@ -140,7 +142,9 @@ public class AiBatchController {
             log.warn("Failed to index batch {} into vector DB (non-fatal): {}", batchId, e.getMessage());
         }
 
-        List<Interview> scheduledInterviews = interviewBatchSchedulerService.allocateSlots(org, job, applications, round);
+        List<Interview> scheduledInterviews = interviewBatchSchedulerService.allocateSlots(
+                org, job, applications, round,
+                origin != null && !origin.isBlank() ? origin : referer);
 
         Map<Long, Interview> interviewByAppId = new HashMap<>();
         for (Interview iv : scheduledInterviews) {

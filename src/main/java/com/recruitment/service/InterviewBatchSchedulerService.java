@@ -36,9 +36,11 @@ public class InterviewBatchSchedulerService {
     private String frontendUrl;
 
     public List<Interview> allocateSlots(Organization org, JobPost job,
-                                         List<Application> applications, String round) {
+                                         List<Application> applications, String round,
+                                         String requestOrigin) {
         List<Interview> created = new ArrayList<>();
 
+        String baseUrl = EmailService.resolveBaseUrl(frontendUrl, requestOrigin);
         LocalDateTime base = LocalDateTime.now()
                 .plusMinutes(FIRST_SLOT_DELAY_MINUTES)
                 .withSecond(0)
@@ -71,6 +73,7 @@ public class InterviewBatchSchedulerService {
                         .scheduledAt(slotStart)
                         .jitsiRoomId("interview-" + UUID.randomUUID().toString().substring(0, 8))
                         .round(round)
+                        .frontendBaseUrl(baseUrl)
                         .build();
                 interview = interviewRepository.save(interview);
 
@@ -79,7 +82,6 @@ public class InterviewBatchSchedulerService {
                         + (candidate.getLastName() != null ? candidate.getLastName() : "");
                 String email = candidate.getEmail();
                 if (email != null && !email.isEmpty()) {
-                    String baseUrl = frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "";
                     emailService.sendScheduledSlotEmail(
                             email, name,
                             job.getTitle() != null ? job.getTitle() : "Interview",
