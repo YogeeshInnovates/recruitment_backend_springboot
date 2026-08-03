@@ -147,7 +147,7 @@ public class EmailService {
         sendEmailSafe(to, "Your Interview is Ready - Join Now", html);
     }
 
-    private void sendEmailSafe(String to, String subject, String htmlContent) {
+    private String sendEmailSafe(String to, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -160,6 +160,7 @@ public class EmailService {
             helper.setText(htmlContent, true);
             mailSender.send(message);
             log.info("Email sent to {}: {}", to, subject);
+            return null;
         } catch (Exception e) {
             log.warn("Could not send email to {}: {}", to, e.getMessage());
             log.info("=== EMAIL WOULD HAVE BEEN SENT ===");
@@ -167,6 +168,20 @@ public class EmailService {
             log.info("Subject: {}", subject);
             log.info("From: {}", mailUsername);
             log.info("=== END EMAIL ===");
+            return e.getMessage();
         }
+    }
+
+    public String sendTestEmail(String to) {
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;padding:20px;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#10b981,#059669);color:white;padding:30px;text-align:center;"><h1>SMTP Test Successful</h1></div>
+                <div style="padding:30px;">
+                <p>Your recruitment platform SMTP settings are working correctly.</p>
+                <p>If you received this email, interview notifications will be delivered too.</p>
+                </div></div></body></html>
+                """;
+        return sendEmailSafe(to, "Test Email - SMTP Check", html);
     }
 }
