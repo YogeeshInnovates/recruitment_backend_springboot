@@ -9,8 +9,10 @@ import com.recruitment.repository.InterviewRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.TaskScheduler;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -24,9 +26,11 @@ public class InterviewBatchSchedulerService {
     private static final int SLOT_MINUTES = 5;
     private static final int FIRST_SLOT_DELAY_MINUTES = 5;
     private static final int MIN_FUTURE_BUFFER_MINUTES = 2;
+    private static final int GET_READY_DELAY_SECONDS = 120;
 
     private final InterviewRepository interviewRepository;
     private final EmailService emailService;
+    private final TaskScheduler taskScheduler;
 
     @Value("${frontend.url}")
     private String frontendUrl;
@@ -82,6 +86,26 @@ public class InterviewBatchSchedulerService {
                             round != null ? round : "Technical Round 1",
                             slotStart,
                             baseUrl + "/system-check");
+
+                    final Interview saved = interview;
+                    final String candidateEmail = email;
+                    final String candidateName = name;
+                    taskScheduler.schedule(() -> {
+                        try {
+                            if (saved.getLinkEmailSentAt() != null) return;
+                            emailService.sendGetReadyEmail(
+                                    candidateEmail, candidateName,
+                                    baseUrl + "/interview/" + saved.getId(),
+                                    "RM-" + saved.getId());
+                            saved.setLinkEmailSentAt(LocalDateTime.now());
+                            interviewRepository.save(saved);
+                            log.info("Get-ready email sent to {} for interview {} (2min after scheduling)",
+                                    candidateEmail, saved.getId());
+                        } catch (Exception e) {
+                            log.warn("Failed to send delayed get-ready email for interview {}: {}",
+                                    saved.getId(), e.getMessage());
+                        }
+                    }, Instant.now().plusSeconds(GET_READY_DELAY_SECONDS));
                 }
 
                 created.add(interview);
