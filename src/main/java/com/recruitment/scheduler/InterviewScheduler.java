@@ -41,8 +41,9 @@ public class InterviewScheduler {
                 Candidate candidate = interview.getApplication().getCandidate();
                 String candidateEmail = candidate.getEmail();
                 String candidateName = candidate.getFirstName() + " " + candidate.getLastName();
-                String roomUrl = frontendUrl + "/interview/" + interview.getId();
-                String systemCheckUrl = frontendUrl + "/system-check";
+                String baseUrl = frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "";
+                String roomUrl = baseUrl + "/interview/" + interview.getId();
+                String systemCheckUrl = baseUrl + "/system-check";
 
                 if (minutesUntil <= 10 && minutesUntil > 5 && interview.getReminderEmailSentAt() == null) {
                     log.info("Sending reminder for interview {} to candidate: {} ({} minutes)",

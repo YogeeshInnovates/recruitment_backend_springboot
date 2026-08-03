@@ -75,12 +75,13 @@ public class InterviewBatchSchedulerService {
                         + (candidate.getLastName() != null ? candidate.getLastName() : "");
                 String email = candidate.getEmail();
                 if (email != null && !email.isEmpty()) {
+                    String baseUrl = frontendUrl != null ? frontendUrl.replaceAll("/+$", "") : "";
                     emailService.sendScheduledSlotEmail(
                             email, name,
                             job.getTitle() != null ? job.getTitle() : "Interview",
                             round != null ? round : "Technical Round 1",
                             slotStart,
-                            frontendUrl + "/system-check");
+                            baseUrl + "/system-check");
                 }
 
                 created.add(interview);

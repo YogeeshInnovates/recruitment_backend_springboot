@@ -11,6 +11,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
@@ -35,12 +36,21 @@ public class EmailService {
     @Value("${SENDGRID_API_KEY:}")
     private String sendGridApiKey;
 
+    @Value("${app.timezone:Asia/Kolkata}")
+    private String appTimezone;
+
+    private String fmt(LocalDateTime localDateTime, String pattern) {
+        return localDateTime.atZone(ZoneId.systemDefault())
+                .withZoneSameInstant(ZoneId.of(appTimezone))
+                .format(DateTimeFormatter.ofPattern(pattern));
+    }
+
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
                                        String round, LocalDateTime scheduledAt,
                                        String systemCheckUrl) {
-        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy"));
-        String formattedTime = scheduledAt.format(DateTimeFormatter.ofPattern("hh:mm a"));
+        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy");
+        String formattedTime = fmt(scheduledAt, "hh:mm a");
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
@@ -72,7 +82,7 @@ public class EmailService {
     @Async
     public void sendInterviewScheduledEmail(String to, String candidateName,
                                              LocalDateTime scheduledAt, String interviewType,
-                                             String orgName) {        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm a"));
+                                             String orgName) {        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy 'at' hh:mm a");
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
@@ -91,7 +101,7 @@ public class EmailService {
     public void sendInterviewReminderEmail(String to, String candidateName,
                                             LocalDateTime scheduledAt, Integer minutesBefore,
                                             String systemCheckUrl) {
-        String formattedDate = scheduledAt.format(DateTimeFormatter.ofPattern("EEEE, MMMM dd, yyyy 'at' hh:mm a"));
+        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy 'at' hh:mm a");
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
