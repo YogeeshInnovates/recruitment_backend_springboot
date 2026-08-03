@@ -32,6 +32,9 @@ public class EmailService {
     @Value("${EMAIL_API_KEY:}")
     private String emailApiKey;
 
+    @Value("${SENDGRID_API_KEY:}")
+    private String sendGridApiKey;
+
     @Async
     public void sendScheduledSlotEmail(String to, String candidateName, String role,
                                        String round, LocalDateTime scheduledAt,
@@ -155,6 +158,9 @@ public class EmailService {
     }
 
     private String sendEmailSafe(String to, String subject, String htmlContent) {
+        if (sendGridApiKey != null && !sendGridApiKey.isEmpty()) {
+            return sendViaSendGrid(to, subject, htmlContent);
+        }
         if (emailApiKey != null && !emailApiKey.isEmpty()) {
             return sendViaBrevo(to, subject, htmlContent);
         }
@@ -178,6 +184,29 @@ public class EmailService {
             log.info("Subject: {}", subject);
             log.info("From: {}", mailUsername);
             log.info("=== END EMAIL ===");
+            return e.getMessage();
+        }
+    }
+
+    private String sendViaSendGrid(String to, String subject, String htmlContent) {
+        try {
+            Map<String, Object> body = Map.of(
+                    "personalizations", List.of(Map.of("to", List.of(Map.of("email", to)))),
+                    "from", Map.of("email", mailUsername, "name", "Recruitment Platform"),
+                    "subject", subject,
+                    "content", List.of(Map.of("type", "text/html", "value", htmlContent)));
+            String resp = emailApiWebClient.post()
+                    .uri("https://api.sendgrid.com/v3/mail/send")
+                    .header("Authorization", "Bearer " + sendGridApiKey)
+                    .header("Content-Type", "application/json")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+            log.info("Email sent via SendGrid to {}: {}", to, subject);
+            return null;
+        } catch (Exception e) {
+            log.warn("Could not send email via SendGrid to {}: {}", to, e.getMessage());
             return e.getMessage();
         }
     }
