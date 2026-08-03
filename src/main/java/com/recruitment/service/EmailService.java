@@ -81,16 +81,20 @@ public class EmailService {
                 <p style="margin-top:20px;font-weight:bold;color:#0f172a;">Before your interview, please test your system now:</p>
                 <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Check My System</a>
 
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open in <b>Google Chrome</b>, copy the link below, open Chrome, and paste it into the address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="font-size:12px;color:#94a3b8;">This link is private to you - do not share it.</p>
+
                 <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
                 <b>How to prepare:</b><br>
                 - Google Chrome is required. If you don't have it, please download it first: <a href="https://www.google.com/chrome/">Download Chrome</a><br>
                 - Use a speaker or earphones so you can hear the interviewer clearly<br>
-                - Allow camera and microphone access when asked — the interview cannot start without them<br>
+                - Allow camera and microphone access when asked - the interview cannot start without them<br>
                 - Stay in a quiet, well-lit place with stable internet<br>
                 - You will receive your room join link automatically a few minutes before your slot</p>
                 <p>Please be online at your scheduled time. Please do not share this schedule with anyone else.</p>
                 </div></div></body></html>
-                """.formatted(candidateName, role, round, formattedDate, formattedTime, systemCheckUrl);
+                """.formatted(candidateName, role, round, formattedDate, formattedTime, systemCheckUrl, systemCheckUrl);
         sendEmailSafe(to, "Your Interview is Scheduled - " + role, html);
     }
 
@@ -129,6 +133,10 @@ public class EmailService {
                 <p style="margin-top:20px;font-weight:bold;color:#0f172a;">Before your interview, please test your system now:</p>
                 <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Check My System</a>
 
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open in <b>Google Chrome</b>, copy the link below, open Chrome, and paste it into the address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="font-size:12px;color:#94a3b8;">This link is private to you - do not share it.</p>
+
                 <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
                 <b>How to prepare:</b><br>
                 - Google Chrome is required. If you don't have it, please download it first: <a href="https://www.google.com/chrome/">Download Chrome</a><br>
@@ -137,7 +145,7 @@ public class EmailService {
                 - Stay in a quiet, well-lit place with stable internet<br>
                 - A separate &quot;Get Ready&quot; email with your room link will arrive 2 minutes before your interview</p>
                 </div></div></body></html>
-                """.formatted(candidateName, formattedDate, minutesBefore, systemCheckUrl);
+                """.formatted(candidateName, formattedDate, minutesBefore, systemCheckUrl, systemCheckUrl);
         sendEmailSafe(to, "Interview Reminder - Starting in " + minutesBefore + " minutes", html);
     }
 
@@ -155,12 +163,15 @@ public class EmailService {
                 <div style="text-align:center;">
                 <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#10b981,#059669);color:white;text-decoration:none;padding:15px 44px;border-radius:8px;font-weight:bold;font-size:18px;margin:18px 0;">Join Interview Room</a>
                 </div>
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open in <b>Google Chrome</b>, copy the link below, open Chrome, and paste it into the address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="font-size:12px;color:#94a3b8;">This link is private to you - do not share it.</p>
                 <p style="font-size:13px;color:#64748b;">
                 When you enter, the system will run a quick compatibility check. After that, click &quot;Start Interview&quot;.<br>
                 If you arrive before your scheduled time, the system will ask you to wait until your slot begins.<br>
                 Your interview can last up to 30 minutes. If you do not enter before your slot ends, the interview link will no longer work.</p>
                 </div></div></body></html>
-                """.formatted(candidateName, roomId, roomUrl);
+                """.formatted(candidateName, roomId, roomUrl, roomUrl);
         sendEmailSafe(to, "Get Ready - Your Interview Room is Open", html);
     }
 
