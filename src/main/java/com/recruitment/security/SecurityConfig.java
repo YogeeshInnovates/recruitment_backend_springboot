@@ -46,6 +46,8 @@ public class SecurityConfig {
                                 "/api/interview/*/transcript",
                                 "/api/interview/*/report/*").permitAll()
                         .requestMatchers("/api/interview/*/snapshot").permitAll()
+                        .requestMatchers(HttpMethod.GET,
+                                "/api/interview/*/activity/summary").permitAll()
                         .requestMatchers(HttpMethod.POST,
                                 "/api/interview/*/chat",
                                 "/api/interview/*/start",

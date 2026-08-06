@@ -373,6 +373,56 @@ public class InterviewSetupController {
         return ResponseEntity.ok(response);
     }
 
+    @GetMapping("/{interviewId}/activity/summary")
+    public ResponseEntity<Map<String, Object>> activitySummary(@PathVariable Long interviewId) {
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) return ResponseEntity.notFound().build();
+
+        List<CandidateActivityLog> logs =
+                candidateActivityLogRepository.findAllByInterviewIdOrderByOccurredAt(interviewId);
+
+        Map<String, Integer> counts = new HashMap<>();
+        for (CandidateActivityLog l : logs) {
+            String type = l.getEventType() != null && !l.getEventType().isEmpty()
+                    ? l.getEventType() : "OTHER";
+            counts.merge(type, 1, Integer::sum);
+        }
+
+        List<Map<String, Object>> events = new ArrayList<>();
+        for (CandidateActivityLog l : logs) {
+            Map<String, Object> ev = new HashMap<>();
+            ev.put("type", l.getEventType());
+            ev.put("detail", l.getDetail());
+            ev.put("time", l.getOccurredAt() != null ? l.getOccurredAt().toString() : null);
+            events.add(ev);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("interviewId", interviewId);
+        resp.put("candidateName", "");
+        resp.put("email", "");
+        try {
+            Application app = interview.getApplication();
+            if (app != null && app.getCandidate() != null) {
+                resp.put("candidateName",
+                        app.getCandidate().getFirstName() + " " +
+                                (app.getCandidate().getLastName() != null ? app.getCandidate().getLastName() : ""));
+                resp.put("email", app.getCandidate().getEmail());
+            }
+        } catch (Exception ignored) { }
+        resp.put("jobTitle", "");
+        try {
+            Application app = interview.getApplication();
+            if (app != null && app.getJobPost() != null) resp.put("jobTitle", app.getJobPost().getTitle());
+        } catch (Exception ignored) { }
+        resp.put("round", interview.getRound());
+        resp.put("status", interview.getStatus() != null ? interview.getStatus().name() : null);
+        resp.put("counts", counts);
+        resp.put("totalFlags", logs.size());
+        resp.put("events", events);
+        return ResponseEntity.ok(resp);
+    }
+
     @GetMapping("/{interviewId}/transcript")
     public ResponseEntity<List<Map<String, Object>>> getTranscript(@PathVariable Long interviewId) {
         List<InterviewTranscript> rows = interviewTranscriptRepository.findByInterviewIdOrderByTimestampAsc(interviewId);
