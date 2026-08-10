@@ -103,7 +103,10 @@ public class EmailService {
     @Async
     public void sendInterviewScheduledEmail(String to, String candidateName,
                                              LocalDateTime scheduledAt, String interviewType,
-                                             String orgName) {        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy 'at' hh:mm a");
+                                             String orgName) {
+        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy 'at' hh:mm a");
+        String baseUrl = resolveBaseUrl(frontendUrl, null);
+        String systemCheckUrl = baseUrl + "/system-check";
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
@@ -112,9 +115,21 @@ public class EmailService {
                 <p>Dear %s,</p>
                 <p>Your interview has been scheduled.</p>
                 <p><b>Company:</b> %s<br><b>Date:</b> %s<br><b>Type:</b> %s</p>
-                <p>You will receive the meeting link shortly.</p>
+
+                <p style="margin-top:24px;font-weight:bold;color:#0f172a;">Test your system now (run all checks):</p>
+                <div style="text-align:center;">
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Check My System</a>
+                </div>
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open in <b>Google Chrome</b>, copy the link below, open Chrome, and paste it into the address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
+                <b>What this checks:</b> Google Chrome, camera, microphone, speakers and internet connection.<br>
+                - Allow camera and microphone access when asked<br>
+                - Use a speaker or earphones so you can hear the interviewer clearly</p>
+
+                <p style="margin-top:20px;font-size:14px;color:#334155;">Your interview room link will be sent <b>3 minutes before</b> your scheduled time. Do not share this link.</p>
                 </div></div></body></html>
-                """.formatted(candidateName, orgName, formattedDate, interviewType);
+                """.formatted(candidateName, orgName, formattedDate, interviewType, systemCheckUrl, systemCheckUrl);
         sendEmailSafe(to, "Interview Scheduled - " + orgName, html);
     }
 
