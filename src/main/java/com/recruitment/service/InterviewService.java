@@ -69,6 +69,10 @@ public class InterviewService {
         return interviewRepository.findAllByOrganizationId(orgId);
     }
 
+    public List<Interview> getInterviewsByApplication(Long applicationId) {
+        return interviewRepository.findByApplicationId(applicationId);
+    }
+
     @Transactional(readOnly = true)
     public Interview getInterviewById(Long id) {
         return interviewRepository.findById(id)

@@ -38,6 +38,12 @@ public class InterviewController {
         return ResponseEntity.ok(ApiResponse.success("Interviews retrieved successfully", interviews));
     }
 
+    @GetMapping("/application/{applicationId}")
+    public ResponseEntity<ApiResponse<List<Interview>>> getInterviewsByApplication(@PathVariable Long applicationId) {
+        List<Interview> interviews = interviewService.getInterviewsByApplication(applicationId);
+        return ResponseEntity.ok(ApiResponse.success("Interviews retrieved successfully", interviews));
+    }
+
     @GetMapping("/{interviewId}")
     public ResponseEntity<ApiResponse<Interview>> getInterviewById(@PathVariable Long interviewId) {
         Interview interview = interviewService.getInterviewById(interviewId);
