@@ -49,7 +49,7 @@ public class InterviewScheduler {
                 String roomUrl = baseUrl + "/interview/" + interview.getId();
                 String systemCheckUrl = baseUrl + "/system-check";
 
-                if (minutesUntil <= 10 && minutesUntil > 5 && interview.getReminderEmailSentAt() == null) {
+                if (minutesUntil <= 7 && minutesUntil > 2 && interview.getReminderEmailSentAt() == null) {
                     log.info("Sending reminder for interview {} to candidate: {} ({} minutes)",
                             interview.getId(), candidateName, minutesUntil);
                     emailService.sendInterviewReminderEmail(
@@ -60,7 +60,7 @@ public class InterviewScheduler {
                     interviewRepository.save(interview);
                 }
 
-                if (minutesUntil <= 3 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
+                if (minutesUntil <= 2 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
                     log.info("Sending get-ready email for interview {} to candidate: {}",
                             interview.getId(), candidateName);
 

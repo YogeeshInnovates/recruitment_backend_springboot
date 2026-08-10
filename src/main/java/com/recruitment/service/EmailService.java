@@ -29,7 +29,7 @@ public class EmailService {
     @Value("${frontend.url}")
     private String frontendUrl;
 
-    @Value("${MAIL_USERNAME:}")
+    @Value("${MAIL_USERNAME:${SPRING_MAIL_USERNAME:}}")
     private String mailUsername;
 
     @Value("${EMAIL_API_KEY:}")
