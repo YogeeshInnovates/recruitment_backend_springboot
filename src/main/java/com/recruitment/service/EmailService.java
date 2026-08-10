@@ -211,13 +211,13 @@ public class EmailService {
     }
 
     private String sendEmailSafe(String to, String subject, String htmlContent) {
-        if (sendGridApiKey != null && !sendGridApiKey.isEmpty()) {
-            return sendViaSendGrid(to, subject, htmlContent);
-        }
-        if (emailApiKey != null && !emailApiKey.isEmpty()) {
-            return sendViaBrevo(to, subject, htmlContent);
-        }
         try {
+            if (sendGridApiKey != null && !sendGridApiKey.isEmpty()) {
+                return sendViaSendGrid(to, subject, htmlContent);
+            }
+            if (emailApiKey != null && !emailApiKey.isEmpty()) {
+                return sendViaBrevo(to, subject, htmlContent);
+            }
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(to);
