@@ -166,8 +166,7 @@ public class EmailService {
         sendEmailSafe(to, "Interview Reminder - Starting in " + minutesBefore + " minutes", html);
     }
 
-    @Async
-    public void sendGetReadyEmail(String to, String candidateName, String roomUrl, String roomId) {
+    public String sendGetReadyEmail(String to, String candidateName, String roomUrl, String roomId) {
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
                 <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
@@ -189,7 +188,7 @@ public class EmailService {
                 Your interview can last up to 30 minutes. If you do not enter before your slot ends, the interview link will no longer work.</p>
                 </div></div></body></html>
                 """.formatted(candidateName, roomId, roomUrl, roomUrl);
-        sendEmailSafe(to, "Get Ready - Your Interview Room is Open", html);
+        return sendEmailSafe(to, "Get Ready - Your Interview Room is Open", html);
     }
 
     @Async

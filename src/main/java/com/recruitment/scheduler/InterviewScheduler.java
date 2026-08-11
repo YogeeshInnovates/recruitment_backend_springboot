@@ -48,14 +48,20 @@ public class InterviewScheduler {
                         : EmailService.resolveBaseUrl(frontendUrl, null);
                 String roomUrl = baseUrl + "/interview/" + interview.getId();
 
-                if (minutesUntil <= 3 && minutesUntil >= -1 && interview.getLinkEmailSentAt() == null) {
+                if (minutesUntil <= 3 && minutesUntil >= -5 && interview.getLinkEmailSentAt() == null) {
                     log.info("Sending get-ready email for interview {} to candidate: {}",
                             interview.getId(), candidateName);
 
-                    emailService.sendGetReadyEmail(
+                    String sendResult = emailService.sendGetReadyEmail(
                             candidateEmail, candidateName, roomUrl,
                             "RM-" + interview.getId()
                     );
+
+                    if (sendResult != null) {
+                        log.warn("Get-ready email FAILED for interview {} ({}), will retry next tick: {}",
+                                interview.getId(), candidateEmail, sendResult);
+                        continue;
+                    }
 
                     interview.setLinkEmailSentAt(now);
 

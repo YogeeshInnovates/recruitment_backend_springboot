@@ -95,10 +95,15 @@ public class InterviewBatchSchedulerService {
                     taskScheduler.schedule(() -> {
                         try {
                             if (saved.getLinkEmailSentAt() != null) return;
-                            emailService.sendGetReadyEmail(
+                            String sendResult = emailService.sendGetReadyEmail(
                                     candidateEmail, candidateName,
                                     baseUrl + "/interview/" + saved.getId(),
                                     "RM-" + saved.getId());
+                            if (sendResult != null) {
+                                log.warn("Delayed get-ready email FAILED for interview {}: {}",
+                                        saved.getId(), sendResult);
+                                return;
+                            }
                             saved.setLinkEmailSentAt(LocalDateTime.now());
                             interviewRepository.save(saved);
                             log.info("Get-ready email sent to {} for interview {} (2min after scheduling)",
