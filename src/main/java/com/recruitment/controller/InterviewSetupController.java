@@ -159,7 +159,7 @@ public class InterviewSetupController {
                         .bodyValue(aiSetupBody)
                         .retrieve()
                         .bodyToMono(Map.class)
-                        .timeout(Duration.ofSeconds(5))
+                        .timeout(Duration.ofSeconds(90))
                         .block();
 
                 log.info("Pinecone ingestion triggered for interview {}", interview.getId());
@@ -251,6 +251,7 @@ public class InterviewSetupController {
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(60))
                     .block();
 
             Map<String, Object> response = new HashMap<>();
@@ -280,7 +281,7 @@ public class InterviewSetupController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("AI chat error: {}", e.getMessage());
+            log.error("AI chat error for interview {}: {} ", interviewId, e.getMessage(), e);
             Map<String, Object> response = new HashMap<>();
             response.put("response", "I apologize for the technical difficulty. Let me continue. Could you please repeat your answer?");
             response.put("question_number", request.getQuestionNumber());
