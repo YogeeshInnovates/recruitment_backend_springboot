@@ -281,12 +281,49 @@ public class InterviewSetupController {
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            log.error("AI chat error for interview {}: {} ", interviewId, e.getMessage(), e);
-            Map<String, Object> response = new HashMap<>();
-            response.put("response", "I apologize for the technical difficulty. Let me continue. Could you please repeat your answer?");
-            response.put("question_number", request.getQuestionNumber());
-            response.put("is_finished", false);
-            return ResponseEntity.ok(response);
+            log.warn("AI chat failed for interview {}, retrying with fresh setup: {}", interviewId, e.getMessage());
+            try {
+                Map<String, Object> reSetupBody = new HashMap<>();
+                reSetupBody.put("interview_id", String.valueOf(interviewId));
+                reSetupBody.put("job_description", job.getDescription() != null ? job.getDescription() : "");
+                reSetupBody.put("candidate_resume_text", candidate.getResumeText() != null ? candidate.getResumeText() : "");
+                reSetupBody.put("candidate_name", candidateName);
+                reSetupBody.put("max_questions", 15);
+                reSetupBody.put("round", interview.getRound() != null ? interview.getRound() : "Technical Round 1");
+
+                webClient.post()
+                        .uri("/api/ai/interview/setup")
+                        .bodyValue(reSetupBody)
+                        .retrieve()
+                        .bodyToMono(Map.class)
+                        .timeout(Duration.ofSeconds(90))
+                        .block();
+
+                log.info("Re-setup succeeded for interview {}, retrying chat", interviewId);
+                Map<String, Object> aiResponse = webClient.post()
+                        .uri("/api/ai/interview/chat")
+                        .bodyValue(body)
+                        .retrieve()
+                        .bodyToMono(Map.class)
+                        .timeout(Duration.ofSeconds(60))
+                        .block();
+
+                Map<String, Object> response = new HashMap<>();
+                response.put("response", aiResponse.get("response"));
+                response.put("question_number", aiResponse.get("question_number"));
+                response.put("current_difficulty", aiResponse.get("current_difficulty"));
+                response.put("running_score", aiResponse.get("running_score"));
+                response.put("is_finished", aiResponse.get("is_finished"));
+                return ResponseEntity.ok(response);
+
+            } catch (Exception retryErr) {
+                log.error("Retry also failed for interview {}: {}", interviewId, retryErr.getMessage());
+                Map<String, Object> response = new HashMap<>();
+                response.put("response", "I apologize for the technical difficulty. Let me continue. Could you please repeat your answer?");
+                response.put("question_number", request.getQuestionNumber());
+                response.put("is_finished", false);
+                return ResponseEntity.ok(response);
+            }
         }
     }
 
