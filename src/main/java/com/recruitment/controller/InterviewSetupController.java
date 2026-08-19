@@ -245,14 +245,26 @@ public class InterviewSetupController {
         body.put("latest_user_message", request.getMessage());
         body.put("question_number", request.getQuestionNumber());
 
-        try {
-            Map<String, Object> aiResponse = webClient.post()
-                    .uri("/api/ai/interview/chat")
-                    .bodyValue(body)
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(60))
-                    .block();
+        Map<String, Object> aiResponse = null;
+        for (int attempt = 1; attempt <= 3; attempt++) {
+            try {
+                aiResponse = webClient.post()
+                        .uri("/api/ai/interview/chat")
+                        .bodyValue(body)
+                        .retrieve()
+                        .bodyToMono(Map.class)
+                        .timeout(Duration.ofSeconds(60))
+                        .block();
+                break;
+            } catch (Exception chatErr) {
+                log.warn("Chat attempt {}/3 failed for interview {}: {}", attempt, interviewId, chatErr.getMessage());
+                if (attempt < 3) {
+                    try { Thread.sleep(attempt * 5000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
+                }
+            }
+        }
+
+        if (aiResponse != null) {
 
             Map<String, Object> response = new HashMap<>();
             response.put("response", aiResponse.get("response"));
@@ -280,8 +292,8 @@ public class InterviewSetupController {
 
             return ResponseEntity.ok(response);
 
-        } catch (Exception e) {
-            log.error("AI chat failed for interview {}: {}", interviewId, e.getMessage());
+        } else {
+            log.error("All 3 chat attempts failed for interview {}", interviewId);
             Map<String, Object> response = new HashMap<>();
             response.put("response", "I apologize for the technical difficulty. Let me continue. Could you please repeat your answer?");
             response.put("question_number", request.getQuestionNumber());
