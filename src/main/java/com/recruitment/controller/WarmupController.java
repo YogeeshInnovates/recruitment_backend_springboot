@@ -19,6 +19,7 @@ import java.util.Map;
 public class WarmupController {
 
     private final WebClient webClient;
+    private volatile boolean fastapiReady = false;
 
     @GetMapping("/api/warmup")
     public ResponseEntity<Map<String, Object>> warmup() {
@@ -26,20 +27,21 @@ public class WarmupController {
         response.put("status", "ready");
         response.put("spring", true);
 
-        boolean fastapiUp = false;
-        try {
-            webClient.get()
-                    .uri("/health")
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .timeout(Duration.ofSeconds(60))
-                    .block();
-            fastapiUp = true;
-        } catch (Exception e) {
-            log.warn("FastAPI wakeup check failed (non-fatal): {}", e.getMessage());
+        if (!fastapiReady) {
+            try {
+                webClient.get()
+                        .uri("/health")
+                        .retrieve()
+                        .bodyToMono(String.class)
+                        .timeout(Duration.ofSeconds(20))
+                        .block();
+                fastapiReady = true;
+            } catch (Exception e) {
+                log.warn("FastAPI wakeup check failed (non-fatal): {}", e.getMessage());
+            }
         }
 
-        response.put("fastapi", fastapiUp);
+        response.put("fastapi", fastapiReady);
         return ResponseEntity.ok(response);
     }
 }
