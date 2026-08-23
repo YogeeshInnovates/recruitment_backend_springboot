@@ -222,7 +222,7 @@ public class AiBatchController {
             row.put("interviewUrl", "/interview/" + iv.getId());
             result.add(row);
         }
-        result.sort(Comparator.comparing(m -> m.get("scheduledAt") == null ? "" : (String) m.get("scheduledAt")));
+        result.sort(Comparator.comparing((Map<String, Object> m) -> m.get("scheduledAt") == null ? "" : (String) m.get("scheduledAt")).reversed());
         return ResponseEntity.ok(result);
     }
 }
