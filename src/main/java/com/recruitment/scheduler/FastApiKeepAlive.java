@@ -13,7 +13,7 @@ public class FastApiKeepAlive {
 
     private final WebClient webClient;
 
-    @Scheduled(fixedRate = 600000)
+    @Scheduled(fixedRate = 600000, initialDelay = 0)
     public void ping() {
         try {
             webClient.get()
