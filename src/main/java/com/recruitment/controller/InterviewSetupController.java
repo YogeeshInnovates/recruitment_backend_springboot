@@ -446,28 +446,48 @@ public class InterviewSetupController {
     }
 
     @GetMapping("/{interviewId}/report/score")
-    public ResponseEntity<byte[]> scoreReport(@PathVariable Long interviewId) throws IOException {
+    public ResponseEntity<byte[]> scoreReport(@PathVariable Long interviewId) {
         Interview interview = interviewRepository.findById(interviewId).orElse(null);
         if (interview == null) return ResponseEntity.notFound().build();
         Application app = interview.getApplication();
         Candidate candidate = app.getCandidate();
         JobPost job = app.getJobPost();
 
-        String csv = "Candidate,Email,Job,Round,Status,Overall Score,Recommendation,Started At,Ended At\n"
-                + String.join(",", new String[]{
-                csvEscape(candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : "")),
-                csvEscape(candidate.getEmail()),
-                csvEscape(job.getTitle()),
-                csvEscape(interview.getRound()),
-                String.valueOf(interview.getStatus()),
-                String.valueOf(interview.getAiScore()),
-                csvEscape(interview.getAiRecommendation()),
-                String.valueOf(interview.getStartedAt()),
-                String.valueOf(interview.getEndedAt())
-        }) + "\n"
-                + "Notes,\"" + (interview.getNotes() != null ? interview.getNotes().replace("\"", "\"\"") : "") + "\"\n";
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            var sheet = wb.createSheet("Score Report");
+            String[] headers = {"Candidate", "Email", "Job", "Round", "Status", "Overall Score", "Recommendation", "Started At", "Ended At"};
+            var headerRow = sheet.createRow(0);
+            var headerStyle = wb.createCellStyle();
+            var font = wb.createFont();
+            font.setBold(true);
+            headerStyle.setFont(font);
+            for (int i = 0; i < headers.length; i++) {
+                var cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            var row = sheet.createRow(1);
+            row.createCell(0).setCellValue(candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
+            row.createCell(1).setCellValue(candidate.getEmail());
+            row.createCell(2).setCellValue(job != null ? job.getTitle() : "");
+            row.createCell(3).setCellValue(interview.getRound());
+            row.createCell(4).setCellValue(interview.getStatus() != null ? interview.getStatus().name() : "");
+            if (interview.getAiScore() != null) row.createCell(5).setCellValue(interview.getAiScore());
+            row.createCell(6).setCellValue(interview.getAiRecommendation() != null ? interview.getAiRecommendation() : "");
+            row.createCell(7).setCellValue(interview.getStartedAt() != null ? interview.getStartedAt().toString() : "");
+            row.createCell(8).setCellValue(interview.getEndedAt() != null ? interview.getEndedAt().toString() : "");
+            var notesRow = sheet.createRow(3);
+            notesRow.createCell(0).setCellValue("Notes:");
+            notesRow.createCell(1).setCellValue(interview.getNotes() != null ? interview.getNotes() : "");
+            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
 
-        return attachment("interview-" + interviewId + "-score.csv", csv, "text/csv");
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            wb.write(out);
+            return attachment("interview-" + interviewId + "-score.xlsx", out.toByteArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
+        }
     }
 
     @GetMapping("/{interviewId}/report/transcript")
@@ -497,27 +517,55 @@ public class InterviewSetupController {
             }
         }
 
-        return attachment("interview-" + interviewId + "-qa.txt", sb.toString(), "text/plain");
+        return attachment("interview-" + interviewId + "-qa.txt", sb.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8), "text/plain");
     }
 
     @GetMapping("/{interviewId}/report/activity")
-    public ResponseEntity<byte[]> activityReport(@PathVariable Long interviewId) throws IOException {
+    public ResponseEntity<byte[]> activityReport(@PathVariable Long interviewId) {
         List<CandidateActivityLog> logs = candidateActivityLogRepository.findAllByInterviewIdOrderByOccurredAt(interviewId);
-        StringBuilder sb = new StringBuilder();
-        sb.append("Event Type,Occurred At,Detail\n");
-        for (CandidateActivityLog l : logs) {
-            sb.append(csvEscape(l.getEventType())).append(",")
-                    .append(String.valueOf(l.getOccurredAt())).append(",")
-                    .append(csvEscape(l.getDetail())).append("\n");
+
+        try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
+            var sheet = wb.createSheet("Activity Log");
+            String[] headers = {"Event Type", "Occurred At", "Detail"};
+            var headerRow = sheet.createRow(0);
+            var headerStyle = wb.createCellStyle();
+            var font = wb.createFont();
+            font.setBold(true);
+            headerStyle.setFont(font);
+            for (int i = 0; i < headers.length; i++) {
+                var cell = headerRow.createCell(i);
+                cell.setCellValue(headers[i]);
+                cell.setCellStyle(headerStyle);
+            }
+            int rowNum = 1;
+            for (CandidateActivityLog l : logs) {
+                var row = sheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(l.getEventType() != null ? l.getEventType() : "");
+                row.createCell(1).setCellValue(l.getOccurredAt() != null ? l.getOccurredAt().toString() : "");
+                row.createCell(2).setCellValue(l.getDetail() != null ? l.getDetail() : "");
+            }
+            sheet.setColumnWidth(0, 6000);
+            sheet.setColumnWidth(1, 8000);
+            sheet.setColumnWidth(2, 20000);
+            if (rowNum == 1) {
+                var empty = sheet.createRow(1);
+                empty.createCell(0).setCellValue("No activity events recorded");
+            }
+
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            wb.write(out);
+            return attachment("interview-" + interviewId + "-activity.xlsx", out.toByteArray(),
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().build();
         }
-        return attachment("interview-" + interviewId + "-activity.csv", sb.toString(), "text/csv");
     }
 
-    private ResponseEntity<byte[]> attachment(String fileName, String content, String contentType) {
+    private ResponseEntity<byte[]> attachment(String fileName, byte[] content, String contentType) {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + fileName + "\"")
                 .contentType(MediaType.parseMediaType(contentType))
-                .body(content.getBytes(StandardCharsets.UTF_8));
+                .body(content);
     }
 
     private String csvEscape(String value) {
