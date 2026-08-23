@@ -246,22 +246,16 @@ public class InterviewSetupController {
         body.put("question_number", request.getQuestionNumber());
 
         Map<String, Object> aiResponse = null;
-        for (int attempt = 1; attempt <= 3; attempt++) {
-            try {
-                aiResponse = webClient.post()
-                        .uri("/api/ai/interview/chat")
-                        .bodyValue(body)
-                        .retrieve()
-                        .bodyToMono(Map.class)
-                        .timeout(Duration.ofSeconds(60))
-                        .block();
-                break;
-            } catch (Exception chatErr) {
-                log.warn("Chat attempt {}/3 failed for interview {}: {}", attempt, interviewId, chatErr.getMessage());
-                if (attempt < 3) {
-                    try { Thread.sleep(attempt * 5000L); } catch (InterruptedException ie) { Thread.currentThread().interrupt(); }
-                }
-            }
+        try {
+            aiResponse = webClient.post()
+                    .uri("/api/ai/interview/chat")
+                    .bodyValue(body)
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(30))
+                    .block();
+        } catch (Exception chatErr) {
+            log.error("Chat failed for interview {}: {}", interviewId, chatErr.getMessage());
         }
 
         if (aiResponse != null) {
