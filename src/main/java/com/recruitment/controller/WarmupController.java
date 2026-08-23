@@ -20,6 +20,7 @@ public class WarmupController {
 
     private final WebClient webClient;
     private volatile boolean fastapiReady = false;
+    private volatile long lastCheckTime = 0;
 
     @GetMapping("/api/warmup")
     public ResponseEntity<Map<String, Object>> warmup() {
@@ -27,18 +28,23 @@ public class WarmupController {
         response.put("status", "ready");
         response.put("spring", true);
 
-        if (!fastapiReady) {
-            try {
-                webClient.get()
-                        .uri("/health")
-                        .retrieve()
-                        .bodyToMono(String.class)
-                        .timeout(Duration.ofSeconds(20))
-                        .block();
-                fastapiReady = true;
-            } catch (Exception e) {
-                log.warn("FastAPI wakeup check failed (non-fatal): {}", e.getMessage());
-            }
+        long now = System.currentTimeMillis();
+        if (!fastapiReady && (now - lastCheckTime) > 15000) {
+            lastCheckTime = now;
+            new Thread(() -> {
+                try {
+                    webClient.get()
+                            .uri("/health")
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .timeout(Duration.ofSeconds(30))
+                            .block();
+                    fastapiReady = true;
+                    log.info("FastAPI is now awake");
+                } catch (Exception e) {
+                    log.warn("FastAPI wakeup ping failed: {}", e.getMessage());
+                }
+            }).start();
         }
 
         response.put("fastapi", fastapiReady);
