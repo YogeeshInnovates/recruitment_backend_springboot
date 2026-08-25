@@ -680,9 +680,52 @@ public class InterviewSetupController {
         interview.setEndedAt(LocalDateTime.now());
         interviewRepository.save(interview);
 
+        if (interview.getAiScore() == null) {
+            Long iid = interviewId;
+            new Thread(() -> {
+                try { Thread.sleep(3000); } catch (InterruptedException ignored) {}
+                try { precomputeScore(iid); } catch (Exception e) { log.warn("Background scoring failed: {}", e.getMessage()); }
+            }).start();
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("status", "completed");
         return ResponseEntity.ok(response);
+    }
+
+    private void precomputeScore(Long interviewId) {
+        Interview interview = interviewRepository.findById(interviewId).orElse(null);
+        if (interview == null) return;
+        Application app = interview.getApplication();
+        if (app == null) return;
+        Candidate candidate = app.getCandidate();
+        JobPost job = app.getJobPost();
+
+        List<InterviewTranscript> rows = interviewTranscriptRepository.findByInterviewIdOrderByTimestampAsc(interviewId);
+        if (rows.isEmpty()) rows = List.copyOf(interview.getTranscripts());
+        List<String[]> qaPairs = new ArrayList<>();
+        String pendingQ = null;
+        for (InterviewTranscript t : rows) {
+            boolean isAi = "AI Interviewer".equals(t.getSpeaker()) || "ai_agent".equals(t.getSpeaker()) || "assistant".equalsIgnoreCase(t.getSpeaker());
+            String c = t.getContent() != null ? t.getContent().trim() : "";
+            if (c.isEmpty()) continue;
+            if (c.startsWith("No answer received")) { qaPairs.add(new String[]{pendingQ != null ? pendingQ : c, ""}); pendingQ = null; continue; }
+            if (isAi) { pendingQ = c; } else { qaPairs.add(new String[]{pendingQ != null ? pendingQ : "(question)", c}); pendingQ = null; }
+        }
+        if (qaPairs.isEmpty()) return;
+
+        GeminiScoringService.ScoreResult scoring = geminiScoringService.scoreTranscript(
+                candidate != null ? candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : "") : "Candidate",
+                job != null ? job.getTitle() : "",
+                interview.getRound(),
+                qaPairs);
+
+        if (scoring.success && scoring.totalScore > 0) {
+            interview.setAiScore((double) scoring.totalScore);
+            interview.setAiRecommendation(scoring.verdict);
+            interviewRepository.save(interview);
+            log.info("Pre-computed score for interview {}: {}", interviewId, scoring.totalScore);
+        }
     }
 
     @PostMapping("/callback")
