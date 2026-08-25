@@ -497,7 +497,7 @@ public class InterviewSetupController {
             long answered = qaPairs.stream().filter(q -> !q[1].isEmpty()).count();
             totalScore = qaPairs.isEmpty() ? 0 : (int) Math.min(100, answered * 100L / qaPairs.size());
         }
-        if (interview.getAiScore() == null && scoring.success) {
+        if (scoring.success && scoring.totalScore > 0) {
             try {
                 interview.setAiScore((double) totalScore);
                 interview.setAiRecommendation(scoring.verdict);
