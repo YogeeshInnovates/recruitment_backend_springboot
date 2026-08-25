@@ -3,6 +3,7 @@ package com.recruitment.controller;
 import com.recruitment.model.*;
 import com.recruitment.repository.*;
 import com.recruitment.service.EmailService;
+import com.recruitment.service.GeminiScoringService;
 import com.recruitment.service.ResumeParserService;
 import lombok.RequiredArgsConstructor;
 import lombok.Data;
@@ -41,6 +42,7 @@ public class InterviewSetupController {
     private final InterviewTranscriptRepository interviewTranscriptRepository;
     private final CandidateActivityLogRepository candidateActivityLogRepository;
     private final EmailService emailService;
+    private final GeminiScoringService geminiScoringService;
     private final WebClient webClient;
 
     @Value("${frontend.url}")
@@ -453,39 +455,128 @@ public class InterviewSetupController {
         Candidate candidate = app.getCandidate();
         JobPost job = app.getJobPost();
 
+        // Build Q&A pairs from transcript
+        List<InterviewTranscript> rows = interviewTranscriptRepository.findByInterviewIdOrderByTimestampAsc(interviewId);
+        if (rows.isEmpty()) {
+            rows = List.copyOf(interview.getTranscripts());
+        }
+        List<String[]> qaPairs = new ArrayList<>();
+        String pendingQuestion = null;
+        for (InterviewTranscript t : rows) {
+            boolean isAi = "AI Interviewer".equals(t.getSpeaker()) || "ai_agent".equals(t.getSpeaker())
+                    || "assistant".equalsIgnoreCase(t.getSpeaker());
+            String content = t.getContent() != null ? t.getContent().trim() : "";
+            if (content.isEmpty()) continue;
+            if (content.startsWith("No answer received")) {
+                qaPairs.add(new String[]{pendingQuestion != null ? pendingQuestion : content, ""});
+                pendingQuestion = null;
+                continue;
+            }
+            if (isAi) {
+                pendingQuestion = content;
+            } else {
+                qaPairs.add(new String[]{pendingQuestion != null ? pendingQuestion : "(question)", content});
+                pendingQuestion = null;
+            }
+        }
+
+        // Score via Gemini
+        GeminiScoringService.ScoreResult scoring = geminiScoringService.scoreTranscript(
+                candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""),
+                job != null ? job.getTitle() : "",
+                interview.getRound(),
+                qaPairs);
+
+        // Persist score so UI shows it too
+        int totalScore;
+        if (scoring.success) {
+            totalScore = scoring.totalScore;
+        } else if (interview.getAiScore() != null) {
+            totalScore = (int) Math.round(interview.getAiScore());
+        } else {
+            long answered = qaPairs.stream().filter(q -> !q[1].isEmpty()).count();
+            totalScore = qaPairs.isEmpty() ? 0 : (int) Math.min(100, answered * 100L / qaPairs.size());
+        }
+        if (interview.getAiScore() == null && scoring.success) {
+            try {
+                interview.setAiScore((double) totalScore);
+                interview.setAiRecommendation(scoring.verdict);
+                interviewRepository.save(interview);
+            } catch (Exception e) {
+                log.warn("Failed to persist Gemini score: {}", e.getMessage());
+            }
+        }
+
         try (org.apache.poi.xssf.usermodel.XSSFWorkbook wb = new org.apache.poi.xssf.usermodel.XSSFWorkbook()) {
-            var sheet = wb.createSheet("Score Report");
-            String[] headers = {"Candidate", "Email", "Job", "Round", "Status", "Overall Score", "Recommendation", "Started At", "Ended At"};
-            var headerRow = sheet.createRow(0);
+            var boldFont = wb.createFont();
+            boldFont.setBold(true);
             var headerStyle = wb.createCellStyle();
-            var font = wb.createFont();
-            font.setBold(true);
-            headerStyle.setFont(font);
+            headerStyle.setFont(boldFont);
+
+            // Sheet 1: Summary
+            var summary = wb.createSheet("Summary");
+            var s0 = summary.createRow(0); s0.createCell(0).setCellValue("Candidate"); s0.createCell(1).setCellValue(candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
+            var s1 = summary.createRow(1); s1.createCell(0).setCellValue("Email"); s1.createCell(1).setCellValue(candidate.getEmail());
+            var s2 = summary.createRow(2); s2.createCell(0).setCellValue("Job"); s2.createCell(1).setCellValue(job != null ? job.getTitle() : "");
+            var s3 = summary.createRow(3); s3.createCell(0).setCellValue("Round"); s3.createCell(1).setCellValue(interview.getRound());
+            var s4 = summary.createRow(4); s4.createCell(0).setCellValue("Status"); s4.createCell(1).setCellValue(interview.getStatus() != null ? interview.getStatus().name() : "");
+            var s5 = summary.createRow(5);
+            s5.createCell(0).setCellValue("TOTAL SCORE");
+            s5.createCell(1).setCellValue(totalScore + " / 100");
+            s5.getCell(0).setCellStyle(headerStyle); s5.getCell(1).setCellStyle(headerStyle);
+            var s6 = summary.createRow(6); s6.createCell(0).setCellValue("Verdict"); s6.createCell(1).setCellValue(scoring.verdict != null ? scoring.verdict : "");
+            var s7 = summary.createRow(7); s7.createCell(0).setCellValue("Questions Asked"); s7.createCell(1).setCellValue(qaPairs.size());
+            long answeredCount = qaPairs.stream().filter(q -> !q[1].isEmpty()).count();
+            var s8 = summary.createRow(8); s8.createCell(0).setCellValue("Answered"); s8.createCell(1).setCellValue(answeredCount + " / " + qaPairs.size());
+            var s9 = summary.createRow(9); s9.createCell(0).setCellValue("Started At"); s9.createCell(1).setCellValue(interview.getStartedAt() != null ? interview.getStartedAt().toString() : "");
+            var s10 = summary.createRow(10); s10.createCell(0).setCellValue("Ended At"); s10.createCell(1).setCellValue(interview.getEndedAt() != null ? interview.getEndedAt().toString() : "");
+            summary.setColumnWidth(0, 7000);
+            summary.setColumnWidth(1, 12000);
+
+            // Sheet 2: Q&A with individual scores
+            var qaSheet = wb.createSheet("Q&A Scores");
+            var hRow = qaSheet.createRow(0);
+            String[] headers = {"#", "Question", "Candidate Answer", "Score (/10)", "Remark"};
             for (int i = 0; i < headers.length; i++) {
-                var cell = headerRow.createCell(i);
+                var cell = hRow.createCell(i);
                 cell.setCellValue(headers[i]);
                 cell.setCellStyle(headerStyle);
             }
-            var row = sheet.createRow(1);
-            row.createCell(0).setCellValue(candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : ""));
-            row.createCell(1).setCellValue(candidate.getEmail());
-            row.createCell(2).setCellValue(job != null ? job.getTitle() : "");
-            row.createCell(3).setCellValue(interview.getRound());
-            row.createCell(4).setCellValue(interview.getStatus() != null ? interview.getStatus().name() : "");
-            if (interview.getAiScore() != null) row.createCell(5).setCellValue(interview.getAiScore());
-            row.createCell(6).setCellValue(interview.getAiRecommendation() != null ? interview.getAiRecommendation() : "");
-            row.createCell(7).setCellValue(interview.getStartedAt() != null ? interview.getStartedAt().toString() : "");
-            row.createCell(8).setCellValue(interview.getEndedAt() != null ? interview.getEndedAt().toString() : "");
-            var notesRow = sheet.createRow(3);
-            notesRow.createCell(0).setCellValue("Notes:");
-            notesRow.createCell(1).setCellValue(interview.getNotes() != null ? interview.getNotes() : "");
-            for (int i = 0; i < headers.length; i++) sheet.autoSizeColumn(i);
+            int rowNum = 1;
+            for (int i = 0; i < qaPairs.size(); i++) {
+                var row = qaSheet.createRow(rowNum++);
+                row.createCell(0).setCellValue(i + 1);
+                String q = qaPairs.get(i)[0];
+                String a = qaPairs.get(i)[1];
+                row.createCell(1).setCellValue(q.length() > 500 ? q.substring(0, 500) : q);
+                row.createCell(2).setCellValue(a.isEmpty() ? "(no answer)" : (a.length() > 800 ? a.substring(0, 800) : a));
+                GeminiScoringService.QaScore matched = scoring.items.stream()
+                        .filter(it -> it.question != null && it.question.equals(q))
+                        .findFirst().orElse(null);
+                if (matched == null && i < scoring.items.size()) {
+                    GeminiScoringService.QaScore byIdx = scoring.items.get(i);
+                    if (byIdx.question == null || byIdx.question.isEmpty()) matched = byIdx;
+                }
+                row.createCell(3).setCellValue(matched != null ? matched.score : 0);
+                row.createCell(4).setCellValue(matched != null && matched.remark != null ? matched.remark : "");
+            }
+            var totalRow = qaSheet.createRow(rowNum);
+            totalRow.createCell(1).setCellValue("TOTAL");
+            totalRow.createCell(3).setCellValue(totalScore + " / 100");
+            totalRow.getCell(1).setCellStyle(headerStyle);
+            totalRow.getCell(3).setCellStyle(headerStyle);
+            qaSheet.setColumnWidth(0, 1500);
+            qaSheet.setColumnWidth(1, 14000);
+            qaSheet.setColumnWidth(2, 16000);
+            qaSheet.setColumnWidth(3, 3500);
+            qaSheet.setColumnWidth(4, 9000);
 
             java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
             wb.write(out);
             return attachment("interview-" + interviewId + "-score.xlsx", out.toByteArray(),
                     "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
         } catch (Exception e) {
+            log.error("Score XLSX generation failed: {}", e.getMessage());
             return ResponseEntity.internalServerError().build();
         }
     }
