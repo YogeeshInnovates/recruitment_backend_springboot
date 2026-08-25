@@ -66,6 +66,12 @@ public class InterviewScheduler {
                     interview.setLinkEmailSentAt(now);
 
                     if (interview.getInterviewType() == Interview.InterviewType.MANUAL) {
+                        Long orgId = interview.getOrganization().getId();
+                        boolean orgBusy = interviewRepository.existsByOrganizationIdAndStatus(orgId, Interview.InterviewStatus.IN_PROGRESS);
+                        if (orgBusy) {
+                            log.info("Skipping auto-start for interview {} — org {} already has active interview", interview.getId(), orgId);
+                            continue;
+                        }
                         String recruiterEmail = interview.getOrganization().getEmail();
                         if (recruiterEmail != null && !recruiterEmail.isEmpty()) {
                             emailService.sendGetReadyEmail(recruiterEmail, "Recruiter",

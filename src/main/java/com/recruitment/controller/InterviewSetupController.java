@@ -303,6 +303,15 @@ public class InterviewSetupController {
         Interview interview = interviewRepository.findById(interviewId).orElse(null);
         if (interview == null) return ResponseEntity.notFound().build();
 
+        Long orgId = interview.getOrganization().getId();
+        boolean orgBusy = interviewRepository.existsByOrganizationIdAndStatus(orgId, Interview.InterviewStatus.IN_PROGRESS);
+        if (orgBusy && interview.getStatus() != Interview.InterviewStatus.IN_PROGRESS) {
+            Map<String, Object> error = new HashMap<>();
+            error.put("error", "Another interview is currently in progress for this organization. Please try again shortly.");
+            error.put("orgBusy", true);
+            return ResponseEntity.status(429).body(error);
+        }
+
         LocalDateTime now = LocalDateTime.now();
         if (interview.getScheduledAt() != null) {
             if (now.isBefore(interview.getScheduledAt())) {

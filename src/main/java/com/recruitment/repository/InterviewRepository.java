@@ -17,4 +17,6 @@ public interface InterviewRepository extends JpaRepository<Interview, Long> {
     List<Interview> findByStatusAndScheduledAtBefore(Interview.InterviewStatus status, LocalDateTime dateTime);
 
     List<Interview> findByApplicationId(Long applicationId);
+
+    boolean existsByOrganizationIdAndStatus(Long organizationId, Interview.InterviewStatus status);
 }
