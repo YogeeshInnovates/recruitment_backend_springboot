@@ -86,11 +86,6 @@ public class InterviewService {
 
     public Interview startInterview(Long id) {
         Interview interview = getInterviewById(id);
-        Long orgId = interview.getOrganization().getId();
-        boolean orgBusy = interviewRepository.existsByOrganizationIdAndStatus(orgId, Interview.InterviewStatus.IN_PROGRESS);
-        if (orgBusy && interview.getStatus() != Interview.InterviewStatus.IN_PROGRESS) {
-            throw new IllegalStateException("Another interview is currently in progress for this organization.");
-        }
         interview.setStatus(Interview.InterviewStatus.IN_PROGRESS);
         interview.setStartedAt(LocalDateTime.now());
         return interviewRepository.save(interview);
