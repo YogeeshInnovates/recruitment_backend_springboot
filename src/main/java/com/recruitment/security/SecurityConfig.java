@@ -40,7 +40,7 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/auth/login", "/api/auth/signup").permitAll()
-                        .requestMatchers("/api/warmup", "/api/interview/callback").permitAll()
+                        .requestMatchers("/api/warmup", "/api/interview/callback", "/api/screening-heartbeat").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/interview/*").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/interview/*/transcript",
