@@ -15,11 +15,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 import reactor.netty.http.client.HttpClient;
 
 import java.time.Duration;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.OffsetDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -29,6 +25,8 @@ import java.util.concurrent.ConcurrentHashMap;
 public class AiScreeningService {
 
     public static final int MAX_RESUMES = 10;
+    private static final int FIRST_SLOT_DELAY_MINUTES = 8;
+    private static final int SLOT_GAP_MINUTES = 8;
 
     private final ResumeParserService resumeParserService;
     private final OrganizationRepository organizationRepository;
@@ -315,6 +313,11 @@ public class AiScreeningService {
         String baseUrl = (String) batch.get("baseUrl");
         List<Map<String, Object>> schedule = (List<Map<String, Object>>) batch.get("schedule");
 
+        LocalDateTime cursor = LocalDateTime.now()
+                .plusMinutes(FIRST_SLOT_DELAY_MINUTES)
+                .withSecond(0)
+                .withNano(0);
+
         List<Map<String, Object>> created = new ArrayList<>();
         for (Map<String, Object> slot : schedule) {
             try {
@@ -331,7 +334,15 @@ public class AiScreeningService {
                     continue;
                 }
 
-                LocalDateTime scheduledAt = toServerLocalDateTime(String.valueOf(slot.get("start_at")));
+                int duration = 25;
+                Object dur = slot.get("duration_minutes");
+                if (dur instanceof Number) {
+                    duration = ((Number) dur).intValue();
+                }
+                if (duration <= 0) duration = 25;
+
+                LocalDateTime scheduledAt = cursor;
+                cursor = scheduledAt.plusMinutes(duration).plusMinutes(SLOT_GAP_MINUTES);
                 Interview interview = Interview.builder()
                         .organization(app.getOrganization())
                         .application(app)
@@ -382,15 +393,5 @@ public class AiScreeningService {
         response.put("interviews", created);
         response.put("schedule", schedule);
         return response;
-    }
-
-    private LocalDateTime toServerLocalDateTime(String iso) {
-        if (iso == null || iso.isEmpty()) return LocalDateTime.now().plusMinutes(5);
-        try {
-            OffsetDateTime offset = OffsetDateTime.parse(iso);
-            return offset.atZoneSameInstant(ZoneId.systemDefault()).toLocalDateTime();
-        } catch (Exception e) {
-            return LocalDateTime.now().plusMinutes(5);
-        }
     }
 }
