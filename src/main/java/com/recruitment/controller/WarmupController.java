@@ -28,6 +28,14 @@ public class WarmupController {
     private volatile boolean fastapiReady = false;
     private final AtomicBoolean wakeupInProgress = new AtomicBoolean(false);
 
+    @GetMapping("/health")
+    public ResponseEntity<Map<String, Object>> health() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", "ok");
+        response.put("spring", true);
+        return ResponseEntity.ok(response);
+    }
+
     @GetMapping("/api/warmup")
     public ResponseEntity<Map<String, Object>> warmup() {
         Map<String, Object> response = new HashMap<>();

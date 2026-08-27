@@ -3,6 +3,7 @@ package com.recruitment.controller;
 import com.recruitment.model.*;
 import com.recruitment.repository.*;
 import com.recruitment.service.EmailService;
+import com.recruitment.service.GapKeepAliveService;
 import com.recruitment.service.GeminiScoringService;
 import com.recruitment.service.ResumeParserService;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class InterviewSetupController {
     private final CandidateActivityLogRepository candidateActivityLogRepository;
     private final EmailService emailService;
     private final GeminiScoringService geminiScoringService;
+    private final GapKeepAliveService gapKeepAliveService;
     private final WebClient webClient;
 
     @Value("${frontend.url}")
@@ -691,6 +693,12 @@ public class InterviewSetupController {
         interview.setEndedAt(LocalDateTime.now());
         interviewRepository.save(interview);
 
+        try {
+            gapKeepAliveService.onInterviewEnded(interview.getOrganization().getId(), interview.getEndedAt());
+        } catch (Exception e) {
+            log.warn("Gap keep-alive hook failed for interview {}: {}", interviewId, e.getMessage());
+        }
+
         if (interview.getAiScore() == null) {
             Long iid = interviewId;
             new Thread(() -> {
@@ -793,6 +801,12 @@ public class InterviewSetupController {
             }
 
             interviewRepository.save(interview);
+
+            try {
+                gapKeepAliveService.onInterviewEnded(interview.getOrganization().getId(), interview.getEndedAt());
+            } catch (Exception e) {
+                log.warn("Gap keep-alive hook failed on callback for interview {}: {}", interviewId, e.getMessage());
+            }
 
             log.info("Scoring callback applied for interview {}", interviewId);
 

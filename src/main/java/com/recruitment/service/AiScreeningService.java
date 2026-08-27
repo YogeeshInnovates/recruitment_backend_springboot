@@ -286,32 +286,6 @@ public class AiScreeningService {
         return count;
     }
 
-    public long pendingInterviews() {
-        long count = 0;
-        for (Interview iv : interviewRepository.findAll()) {
-            if (iv.getStatus() == Interview.InterviewStatus.SCHEDULED
-                    || iv.getStatus() == Interview.InterviewStatus.IN_PROGRESS) {
-                count++;
-            }
-        }
-        return count;
-    }
-
-    public boolean pingFastApi() {
-        try {
-            screeningWebClient().get()
-                    .uri("/health")
-                    .retrieve()
-                    .bodyToMono(Map.class)
-                    .timeout(Duration.ofSeconds(30))
-                    .block();
-            return true;
-        } catch (Exception e) {
-            log.warn("FastAPI heartbeat ping failed: {}", e.getMessage());
-            return false;
-        }
-    }
-
     @Transactional
     public Map<String, Object> confirmBatch(String batchId) {
         Map<String, Object> batch = batches.get(batchId);
