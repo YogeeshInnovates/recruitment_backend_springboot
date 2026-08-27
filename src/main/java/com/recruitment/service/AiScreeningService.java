@@ -275,6 +275,17 @@ public class AiScreeningService {
         }
     }
 
+    public long pendingInterviews(Long orgId) {
+        long count = 0;
+        for (Interview iv : interviewRepository.findAllByOrganizationId(orgId)) {
+            if (iv.getStatus() == Interview.InterviewStatus.SCHEDULED
+                    || iv.getStatus() == Interview.InterviewStatus.IN_PROGRESS) {
+                count++;
+            }
+        }
+        return count;
+    }
+
     @Transactional
     public Map<String, Object> confirmBatch(String batchId) {
         Map<String, Object> batch = batches.get(batchId);

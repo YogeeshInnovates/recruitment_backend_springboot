@@ -59,6 +59,13 @@ public class AiScreeningController {
         }
     }
 
+    @GetMapping("/pending")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'HR', 'RECRUITER', 'SUPER_ADMIN')")
+    public ResponseEntity<Map<String, Object>> pending(@PathVariable Long orgId) {
+        long pending = aiScreeningService.pendingInterviews(orgId);
+        return ResponseEntity.ok(Map.of("pending", pending));
+    }
+
     @PostMapping("/confirm")
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'HR', 'RECRUITER', 'SUPER_ADMIN')")
     public ResponseEntity<Map<String, Object>> confirm(@PathVariable Long orgId,
