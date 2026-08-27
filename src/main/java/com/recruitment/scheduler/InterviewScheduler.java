@@ -48,7 +48,7 @@ public class InterviewScheduler {
                         : EmailService.resolveBaseUrl(frontendUrl, null);
                 String roomUrl = baseUrl + "/interview/" + interview.getId();
 
-                if (minutesUntil <= 3 && minutesUntil >= -5 && interview.getLinkEmailSentAt() == null) {
+                if (minutesUntil <= 3 && minutesUntil >= -45 && interview.getLinkEmailSentAt() == null) {
                     log.info("Sending get-ready email for interview {} to candidate: {}",
                             interview.getId(), candidateName);
 
