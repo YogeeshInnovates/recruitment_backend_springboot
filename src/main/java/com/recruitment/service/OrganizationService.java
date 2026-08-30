@@ -10,10 +10,15 @@ import com.recruitment.repository.OrgMembershipRepository;
 import com.recruitment.repository.OrganizationRepository;
 import com.recruitment.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.mindrot.jbcrypt.BCrypt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -89,9 +94,64 @@ public class OrganizationService {
         return orgMembershipRepository.save(membership);
     }
 
+    public Map<String, Object> registerRecruiter(Long orgId, String name, String email) {
+        String normalizedEmail = email.toLowerCase().trim();
+        User user = userRepository.findByEmail(normalizedEmail).orElse(null);
+
+        String tempPassword = null;
+        boolean accountCreated = false;
+
+        if (user == null) {
+            tempPassword = "Recruit@" + (10000 + (int) (Math.random() * 90000));
+            user = User.builder()
+                    .name(name.trim())
+                    .email(normalizedEmail)
+                    .password(BCrypt.hashpw(tempPassword, BCrypt.gensalt()))
+                    .build();
+            user = userRepository.save(user);
+            accountCreated = true;
+        } else if (orgMembershipRepository.findByUserIdAndOrgId(user.getId(), orgId).isPresent()) {
+            throw new RuntimeException("User is already a recruiter of this organization");
+        }
+
+        OrgMembership membership = OrgMembership.builder()
+                .userId(user.getId())
+                .orgId(orgId)
+                .role(TenantRole.ROLE_RECRUITER.name())
+                .build();
+        membership = orgMembershipRepository.save(membership);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("membershipId", membership.getId());
+        result.put("userId", user.getId());
+        result.put("userName", user.getName());
+        result.put("userEmail", user.getEmail());
+        result.put("role", membership.getRole());
+        result.put("accountCreated", accountCreated);
+        result.put("tempPassword", tempPassword);
+        return result;
+    }
+
     @Transactional(readOnly = true)
-    public List<OrgMembership> getOrgRecruiters(Long orgId) {
-        return orgMembershipRepository.findByOrgId(orgId);
+    public List<Map<String, Object>> getOrgRecruiters(Long orgId) {
+        List<OrgMembership> memberships = orgMembershipRepository.findByOrgId(orgId);
+        Map<Long, User> usersById = userRepository
+                .findAllById(memberships.stream().map(OrgMembership::getUserId).toList())
+                .stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
+
+        return memberships.stream().map(m -> {
+            Map<String, Object> mm = new HashMap<>();
+            mm.put("id", m.getId());
+            mm.put("userId", m.getUserId());
+            mm.put("orgId", m.getOrgId());
+            mm.put("role", m.getRole());
+            mm.put("createdAt", m.getCreatedAt());
+            User u = usersById.get(m.getUserId());
+            mm.put("name", u != null ? u.getName() : null);
+            mm.put("email", u != null ? u.getEmail() : null);
+            return mm;
+        }).toList();
     }
 
     public Organization updateOrg(Long id, OrganizationRequest request) {

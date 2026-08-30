@@ -4,6 +4,7 @@ import com.recruitment.dto.AddRecruiterRequest;
 import com.recruitment.dto.ApiResponse;
 import com.recruitment.dto.AssignRoleRequest;
 import com.recruitment.dto.OrganizationRequest;
+import com.recruitment.dto.RegisterRecruiterRequest;
 import com.recruitment.model.OrgMembership;
 import com.recruitment.model.Organization;
 import com.recruitment.model.TenantRole;
@@ -17,6 +18,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/organizations")
@@ -68,10 +70,20 @@ public class OrganizationController {
                 .body(ApiResponse.success("Recruiter added successfully", membership));
     }
 
+    @PostMapping("/{orgId}/recruiters/register")
+    @PreAuthorize("hasAnyRole('ORG_ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> registerRecruiter(
+            @PathVariable Long orgId,
+            @Valid @RequestBody RegisterRecruiterRequest request) {
+        Map<String, Object> result = organizationService.registerRecruiter(orgId, request.getName(), request.getEmail());
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Recruiter account registered successfully", result));
+    }
+
     @GetMapping("/{orgId}/recruiters")
     @PreAuthorize("hasAnyRole('ORG_ADMIN', 'HR', 'RECRUITER', 'SUPER_ADMIN')")
-    public ResponseEntity<ApiResponse<List<OrgMembership>>> getRecruiters(@PathVariable Long orgId) {
-        List<OrgMembership> members = organizationService.getOrgRecruiters(orgId);
+    public ResponseEntity<ApiResponse<List<Map<String, Object>>>> getRecruiters(@PathVariable Long orgId) {
+        List<Map<String, Object>> members = organizationService.getOrgRecruiters(orgId);
         return ResponseEntity.ok(ApiResponse.success("Recruiters retrieved successfully", members));
     }
 
