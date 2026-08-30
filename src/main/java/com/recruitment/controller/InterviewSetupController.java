@@ -55,6 +55,7 @@ public class InterviewSetupController {
             @RequestParam("jobDescription") String jobDescription,
             @RequestParam("resume") MultipartFile resumeFile,
             @RequestParam(value = "round", defaultValue = "Technical Round 1") String round,
+            @RequestParam(value = "mock", defaultValue = "false") boolean mock,
             @RequestHeader(value = "Origin", required = false) String origin,
             @RequestHeader(value = "Referer", required = false) String referer) {
 
@@ -112,7 +113,7 @@ public class InterviewSetupController {
                     .application(application)
                     .interviewType(Interview.InterviewType.AGENT)
                     .status(Interview.InterviewStatus.SCHEDULED)
-                    .scheduledAt(LocalDateTime.now().plusMinutes(5))
+                    .scheduledAt(mock ? LocalDateTime.now() : LocalDateTime.now().plusMinutes(5))
                     .jitsiRoomId(roomId)
                     .frontendBaseUrl(EmailService.resolveBaseUrl(frontendUrl,
                             origin != null && !origin.isBlank() ? origin : referer))
@@ -123,7 +124,7 @@ public class InterviewSetupController {
                     ? frontendUrl : interview.getFrontendBaseUrl())
                     + "/interview/" + interview.getId();
 
-            if (parsed.getEmail() != null && !parsed.getEmail().isEmpty()) {
+            if (!mock && parsed.getEmail() != null && !parsed.getEmail().isEmpty()) {
                 emailService.sendInterviewLinkEmail(
                         parsed.getEmail(),
                         parsed.getName(),
@@ -217,6 +218,7 @@ public class InterviewSetupController {
     @PostMapping("/{interviewId}/chat")
     public ResponseEntity<Map<String, Object>> chat(
             @PathVariable Long interviewId,
+            @RequestParam(value = "mock", defaultValue = "false") boolean mock,
             @RequestBody ChatMessageRequest request) {
 
         Interview interview = interviewRepository.findById(interviewId)
@@ -271,21 +273,23 @@ public class InterviewSetupController {
             response.put("running_score", aiResponse.get("running_score"));
             response.put("is_finished", aiResponse.get("is_finished"));
 
-            try {
-                LocalDateTime now = LocalDateTime.now();
-                interviewTranscriptRepository.save(InterviewTranscript.builder()
-                        .interview(interview).speaker("candidate")
-                        .content(request.getMessage())
-                        .timestamp(now).questionNumber(request.getQuestionNumber()).build());
-                String aiReply = aiResponse.get("response") != null ? String.valueOf(aiResponse.get("response")) : "";
-                if (!aiReply.isEmpty()) {
+            if (!mock) {
+                try {
+                    LocalDateTime now = LocalDateTime.now();
                     interviewTranscriptRepository.save(InterviewTranscript.builder()
-                            .interview(interview).speaker("ai_agent")
-                            .content(aiReply)
-                            .timestamp(now.plusSeconds(1)).questionNumber(request.getQuestionNumber()).build());
+                            .interview(interview).speaker("candidate")
+                            .content(request.getMessage())
+                            .timestamp(now).questionNumber(request.getQuestionNumber()).build());
+                    String aiReply = aiResponse.get("response") != null ? String.valueOf(aiResponse.get("response")) : "";
+                    if (!aiReply.isEmpty()) {
+                        interviewTranscriptRepository.save(InterviewTranscript.builder()
+                                .interview(interview).speaker("ai_agent")
+                                .content(aiReply)
+                                .timestamp(now.plusSeconds(1)).questionNumber(request.getQuestionNumber()).build());
+                    }
+                } catch (Exception saveErr) {
+                    log.warn("Failed to persist chat transcript: {}", saveErr.getMessage());
                 }
-            } catch (Exception saveErr) {
-                log.warn("Failed to persist chat transcript: {}", saveErr.getMessage());
             }
 
             return ResponseEntity.ok(response);
@@ -685,9 +689,65 @@ public class InterviewSetupController {
     }
 
     @PostMapping("/{interviewId}/end")
-    public ResponseEntity<Map<String, Object>> endInterview(@PathVariable Long interviewId) {
+    public ResponseEntity<Map<String, Object>> endInterview(
+            @PathVariable Long interviewId,
+            @RequestParam(value = "mock", defaultValue = "false") boolean mock,
+            @RequestBody(required = false) Map<String, Object> payload) {
         Interview interview = interviewRepository.findById(interviewId).orElse(null);
         if (interview == null) return ResponseEntity.notFound().build();
+
+        if (mock) {
+            interview.setStatus(Interview.InterviewStatus.COMPLETED);
+            interview.setEndedAt(LocalDateTime.now());
+            interviewRepository.save(interview);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("status", "completed");
+
+            try {
+                Application app = interview.getApplication();
+                Candidate candidate = app != null ? app.getCandidate() : null;
+                JobPost job = app != null ? app.getJobPost() : null;
+
+                List<String[]> qaPairs = new ArrayList<>();
+                Object msgsObj = payload != null ? payload.get("messages") : null;
+                if (msgsObj instanceof List) {
+                    String pendingQ = null;
+                    for (Object o : (List<?>) msgsObj) {
+                        if (!(o instanceof Map)) continue;
+                        Map<?, ?> m = (Map<?, ?>) o;
+                        String role = m.get("role") != null ? String.valueOf(m.get("role")) : "";
+                        String content = m.get("content") != null ? String.valueOf(m.get("content")).trim() : "";
+                        if (content.isEmpty()) continue;
+                        boolean isAi = "ai".equalsIgnoreCase(role) || "assistant".equalsIgnoreCase(role)
+                                || "ai_agent".equalsIgnoreCase(role);
+                        if (isAi) {
+                            pendingQ = content;
+                        } else {
+                            qaPairs.add(new String[]{pendingQ != null ? pendingQ : "(question)", content});
+                            pendingQ = null;
+                        }
+                    }
+                }
+
+                if (!qaPairs.isEmpty()) {
+                    String candidateName = candidate != null
+                            ? candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : "")
+                            : "Candidate";
+                    String jobTitle = job != null ? job.getTitle() : "";
+                    GeminiScoringService.ScoreResult scoring = geminiScoringService.scoreTranscript(
+                            candidateName, jobTitle, interview.getRound(), qaPairs);
+                    if (scoring.success && scoring.totalScore > 0) {
+                        response.put("score", scoring.totalScore);
+                        response.put("recommendation", scoring.verdict);
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Mock score computation failed for interview {}: {}", interviewId, e.getMessage());
+            }
+
+            return ResponseEntity.ok(response);
+        }
 
         interview.setStatus(Interview.InterviewStatus.COMPLETED);
         interview.setEndedAt(LocalDateTime.now());
