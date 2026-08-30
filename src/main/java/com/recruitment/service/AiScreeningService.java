@@ -370,6 +370,12 @@ public class AiScreeningService {
                 String name = candidate.getFirstName() + " " + (candidate.getLastName() != null ? candidate.getLastName() : "");
                 String email = candidate.getEmail();
                 if (email != null && !email.isEmpty()) {
+                    emailService.sendSystemCheckEmail(
+                            email, name,
+                            job != null && job.getTitle() != null ? job.getTitle() : "Interview",
+                            round != null && !round.isBlank() ? round : "Technical Round 1",
+                            scheduledAt,
+                            baseUrl + "/system-check");
                     emailService.sendScheduledSlotEmail(
                             email, name,
                             job != null && job.getTitle() != null ? job.getTitle() : "Interview",

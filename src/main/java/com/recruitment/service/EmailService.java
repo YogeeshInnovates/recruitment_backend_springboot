@@ -101,6 +101,41 @@ public class EmailService {
     }
 
     @Async
+    public void sendSystemCheckEmail(String to, String candidateName, String role,
+                                     String round, LocalDateTime scheduledAt,
+                                     String systemCheckUrl) {
+        String formattedDate = fmt(scheduledAt, "EEEE, MMMM dd, yyyy");
+        String formattedTime = fmt(scheduledAt, "hh:mm a");
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;padding:20px;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#f59e0b,#d97706);color:white;padding:30px;text-align:center;"><h1>System Check Required</h1></div>
+                <div style="padding:30px;">
+                <p>Dear %s,</p>
+                <p>You have been shortlisted for the <b>%s</b> position (<b>%s</b>).</p>
+                <p style="background:#f3f4f6;padding:15px;border-radius:4px;font-size:15px;color:#1f2937;">
+                <b>Date:</b> %s<br>
+                <b>Time:</b> %s</p>
+
+                <p style="margin-top:20px;font-weight:bold;color:#0f172a;">Before your interview, please test your system now:</p>
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:14px 34px;border-radius:8px;font-weight:bold;margin:10px 0;">Run System Check</a>
+
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open in <b>Google Chrome</b>, copy the link below, open Chrome, and paste it into the address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="font-size:12px;color:#94a3b8;">This link is private to you - do not share it.</p>
+
+                <p style="background:#e8f4f8;padding:15px;border-radius:4px;font-size:14px;color:#0c5460;text-align:left;">
+                <b>What this checks:</b> Google Chrome, camera, microphone, speakers and internet connection.<br>
+                - Allow camera and microphone access when asked<br>
+                - Use a speaker or earphones so you can hear the interviewer clearly<br>
+                - Stay in a quiet, well-lit place with stable internet</p>
+                <p>Your interview room join link will be sent automatically a few minutes before your scheduled time.</p>
+                </div></div></body></html>
+                """.formatted(candidateName, role, round, formattedDate, formattedTime, systemCheckUrl, systemCheckUrl);
+        sendEmailSafe(to, "Action Required - System Check Before Your Interview", html);
+    }
+
+    @Async
     public void sendInterviewScheduledEmail(String to, String candidateName,
                                              LocalDateTime scheduledAt, String interviewType,
                                              String orgName) {
