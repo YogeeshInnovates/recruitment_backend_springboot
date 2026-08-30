@@ -2,10 +2,13 @@ package com.recruitment.controller;
 
 import com.recruitment.dto.ApiResponse;
 import com.recruitment.dto.AuthResponse;
+import com.recruitment.dto.ForgotPasswordRequest;
 import com.recruitment.dto.LoginRequest;
+import com.recruitment.dto.ResetPasswordRequest;
 import com.recruitment.dto.SignupRequest;
 import com.recruitment.model.OrgMembership;
 import com.recruitment.service.AuthService;
+import com.recruitment.service.PasswordResetService;
 import com.recruitment.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -25,6 +28,7 @@ public class AuthController {
 
     private final UserService userService;
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/signup")
     public ResponseEntity<ApiResponse<AuthResponse>> signup(@Valid @RequestBody SignupRequest request) {
@@ -37,6 +41,20 @@ public class AuthController {
     public ResponseEntity<ApiResponse<AuthResponse>> login(@Valid @RequestBody LoginRequest request) {
         AuthResponse response = userService.login(request);
         return ResponseEntity.ok(ApiResponse.success("Login successful", response));
+    }
+
+    @PostMapping("/forgot-password")
+    public ResponseEntity<ApiResponse<String>> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
+        passwordResetService.requestReset(request.getEmail());
+        return ResponseEntity.ok(ApiResponse.success(
+                "If that email is registered, a password reset link has been sent.", "Check your inbox"));
+    }
+
+    @PostMapping("/reset-password")
+    public ResponseEntity<ApiResponse<String>> resetPassword(@Valid @RequestBody ResetPasswordRequest request) {
+        passwordResetService.resetPassword(request.getToken(), request.getNewPassword());
+        return ResponseEntity.ok(ApiResponse.success(
+                "Password reset successfully. You can now sign in with your new password.", "Password updated"));
     }
 
     @GetMapping("/me/{userId}")

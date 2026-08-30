@@ -39,7 +39,8 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/login", "/api/auth/signup").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/signup",
+                                "/api/auth/forgot-password", "/api/auth/reset-password").permitAll()
                         .requestMatchers("/api/warmup", "/health", "/api/interview/callback").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/interview/*").permitAll()
                         .requestMatchers(HttpMethod.GET,

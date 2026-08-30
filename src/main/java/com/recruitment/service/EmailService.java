@@ -321,6 +321,27 @@ public class EmailService {
         }
     }
 
+    @Async
+    public void sendPasswordResetEmail(String to, String name, String resetUrl) {
+        String html = """
+                <html><body style="font-family:Arial,sans-serif;padding:20px;">
+                <div style="max-width:600px;margin:0 auto;background:#fff;border-radius:8px;overflow:hidden;box-shadow:0 2px 10px rgba(0,0,0,0.1);">
+                <div style="background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:30px;text-align:center;"><h1>Reset Your Password</h1></div>
+                <div style="padding:30px;">
+                <p>Dear %s,</p>
+                <p>We received a request to reset the password for your <b>RecruitAI</b> account.</p>
+                <p style="text-align:center;">Click the button below to choose a new password:</p>
+                <div style="text-align:center;">
+                <a href="%s" style="display:inline-block;background:linear-gradient(135deg,#7c3aed,#8b5cf6);color:white;text-decoration:none;padding:15px 44px;border-radius:8px;font-weight:bold;font-size:16px;margin:16px 0;">Set New Password</a>
+                </div>
+                <p style="font-size:13px;color:#64748b;margin:6px 0 0;">If the button doesn't open, copy the link below and paste it into your browser address bar:</p>
+                <div style="background:#f1f5f9;border:1px solid #e2e8f0;border-radius:6px;padding:10px 14px;font-size:12px;color:#334155;word-break:break-all;text-align:left;margin:6px 0 14px;">%s</div>
+                <p style="font-size:13px;color:#94a3b8;">This link expires in <b>30 minutes</b>. If you didn't request this, you can safely ignore this email - your password will not change.</p>
+                </div></div></body></html>
+                """.formatted(name == null || name.isBlank() ? "there" : name, resetUrl, resetUrl);
+        sendEmailSafe(to, "Reset Your Password - RecruitAI", html);
+    }
+
     public String sendTestEmail(String to) {
         String html = """
                 <html><body style="font-family:Arial,sans-serif;padding:20px;">
