@@ -27,7 +27,7 @@ public class PasswordResetService {
     private String frontendUrl;
 
     @Transactional
-    public void requestReset(String email) {
+    public void requestReset(String email, String origin) {
         String normalized = email.toLowerCase().trim();
         User user = userRepository.findByEmail(normalized).orElse(null);
         if (user == null) {
@@ -43,7 +43,10 @@ public class PasswordResetService {
                 .build();
         resetTokenRepository.save(resetToken);
 
-        String base = frontendUrl != null ? frontendUrl.trim().replaceAll("/+$", "") : "";
+        String base = EmailService.resolveBaseUrl(frontendUrl, origin);
+        if (base.isEmpty()) {
+            base = "http://localhost:3000";
+        }
         String resetUrl = base + "/reset-password?token=" + token;
         emailService.sendPasswordResetEmail(user.getEmail(), user.getName(), resetUrl);
     }
