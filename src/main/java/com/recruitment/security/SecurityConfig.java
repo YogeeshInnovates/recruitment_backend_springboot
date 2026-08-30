@@ -48,13 +48,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/interview/*/snapshot").permitAll()
                         .requestMatchers(HttpMethod.GET,
                                 "/api/interview/*/activity/summary").permitAll()
-                        .requestMatchers(HttpMethod.POST,
-                                "/api/interview/*/chat",
-                                "/api/interview/*/start",
-                                "/api/interview/*/end",
-                                "/api/interview/*/activity",
-                                "/api/interview/*/evidence",
-                                "/api/interview/*/report").permitAll()
+.requestMatchers(HttpMethod.POST,
+                        "/api/interview/setup",
+                        "/api/interview/*/chat",
+                        "/api/interview/*/start",
+                        "/api/interview/*/end",
+                        "/api/interview/*/activity",
+                        "/api/interview/*/evidence",
+                        "/api/interview/*/report").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
