@@ -54,8 +54,7 @@ public class SecurityConfig {
                                 "/api/interview/*/end",
                                 "/api/interview/*/activity",
                                 "/api/interview/*/evidence",
-                                "/api/interview/*/report",
-                                "/api/interview/transcribe").permitAll()
+                                "/api/interview/*/report").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .exceptionHandling(ex -> ex
