@@ -37,6 +37,19 @@ public class WebClientConfig {
         return WebClient.builder().build();
     }
 
+    @Bean
+    public WebClient aiTranscribeWebClient() {
+        HttpClient httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(120))
+                .option(io.netty.channel.ChannelOption.CONNECT_TIMEOUT_MILLIS, 5000);
+
+        return WebClient.builder()
+                .baseUrl(aiServiceUrl)
+                .filter(addApiKeyHeader())
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
+    }
+
     private ExchangeFilterFunction addApiKeyHeader() {
         return (request, next) -> {
             ClientRequest filteredRequest = ClientRequest.from(request)

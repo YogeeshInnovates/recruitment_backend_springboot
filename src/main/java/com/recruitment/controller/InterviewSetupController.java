@@ -11,10 +11,13 @@ import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.http.client.MultipartBodyBuilder;
+import org.springframework.web.reactive.function.BodyInserters;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import java.io.IOException;
@@ -46,6 +49,7 @@ public class InterviewSetupController {
     private final GeminiScoringService geminiScoringService;
     private final GapKeepAliveService gapKeepAliveService;
     private final WebClient webClient;
+    private final WebClient aiTranscribeWebClient;
 
     @Value("${frontend.url}")
     private String frontendUrl;
@@ -301,6 +305,50 @@ public class InterviewSetupController {
             response.put("question_number", request.getQuestionNumber());
             response.put("is_finished", false);
             return ResponseEntity.ok(response);
+        }
+    }
+
+    @PostMapping("/{interviewId}/transcribe")
+    public ResponseEntity<Map<String, Object>> transcribeAudio(
+            @PathVariable Long interviewId,
+            @RequestParam("file") MultipartFile file) {
+
+        if (interviewRepository.findById(interviewId).isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body(Collections.singletonMap("error", "Empty audio file"));
+        }
+
+        try {
+            String filename = (file.getOriginalFilename() != null && !file.getOriginalFilename().isBlank())
+                    ? file.getOriginalFilename() : "recording.webm";
+            String contentType = (file.getContentType() != null && !file.getContentType().isBlank())
+                    ? file.getContentType() : "audio/webm";
+
+            MultipartBodyBuilder builder = new MultipartBodyBuilder();
+            builder.part("file", file.getResource())
+                    .filename(filename)
+                    .contentType(MediaType.parseMediaType(contentType));
+
+            Map<String, Object> aiResponse = aiTranscribeWebClient.post()
+                    .uri("/api/ai/transcribe")
+                    .contentType(MediaType.MULTIPART_FORM_DATA)
+                    .body(BodyInserters.fromMultipartData(builder.build()))
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .timeout(Duration.ofSeconds(120))
+                    .block();
+
+            if (aiResponse == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Collections.singletonMap("error", "Transcription service returned no response"));
+            }
+            return ResponseEntity.ok(aiResponse);
+        } catch (Exception e) {
+            log.error("Transcribe failed for interview {}: {}", interviewId, e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Collections.singletonMap("error", "Transcription failed: " + e.getMessage()));
         }
     }
 

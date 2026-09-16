@@ -52,6 +52,7 @@ public class SecurityConfig {
 .requestMatchers(HttpMethod.POST,
                         "/api/interview/setup",
                         "/api/interview/*/chat",
+                        "/api/interview/*/transcribe",
                         "/api/interview/*/start",
                         "/api/interview/*/end",
                         "/api/interview/*/activity",
